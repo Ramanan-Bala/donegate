@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640" width="1280" height="640">
+  <defs>
+    <radialGradient id="glow" cx="78%" cy="20%" r="70%">
+      <stop offset="0" stop-color="#16a34a" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#16a34a" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1280" height="640" fill="#0b1220"/>
+  <rect width="1280" height="640" fill="url(#glow)"/>
+  <g transform="translate(110 150) scale(3.4)">
+    <rect x="9" y="12" width="9" height="42" rx="4.5" fill="#e2e8f0"/>
+    <rect x="46" y="12" width="9" height="42" rx="4.5" fill="#e2e8f0"/>
+    <rect x="9" y="12" width="46" height="9" rx="4.5" fill="#e2e8f0"/>
+    <path d="M22.5 37.5 L30 45 L43 30" fill="none" stroke="#22c55e" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <text x="380" y="300" font-family="-apple-system, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="124" font-weight="700" letter-spacing="-4"><tspan fill="#f1f5f9">done</tspan><tspan fill="#22c55e">gate</tspan></text>
+  <text x="384" y="370" font-family="-apple-system, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="34" fill="#cbd5e1">Let cheap AI models write your code,</text>
+  <text x="384" y="416" font-family="-apple-system, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="34" fill="#cbd5e1">but make them <tspan fill="#22c55e" font-weight="700">prove it works.</tspan></text>
+  <line x1="110" y1="500" x2="1170" y2="500" stroke="#1e293b" stroke-width="2"/>
+  <text x="110" y="556" font-family="-apple-system, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="28" fill="#94a3b8">Claude Code  ·  OpenCode  ·  pi  ·  Antigravity  ·  GitHub Actions</text>
+</svg>
