@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 72" width="360" height="72" role="img" aria-label="donegate">
+  <g transform="translate(4 4)">
+  <g>
+    <rect x="9" y="12" width="9" height="42" rx="4.5" fill="#0f172a"/>
+    <rect x="46" y="12" width="9" height="42" rx="4.5" fill="#0f172a"/>
+    <rect x="9" y="12" width="46" height="9" rx="4.5" fill="#0f172a"/>
+    <path d="M22.5 37.5 L30 45 L43 30" fill="none" stroke="#16a34a" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  </g>
+  <text x="80" y="51" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Inter, Helvetica, Arial, sans-serif" font-size="40" font-weight="700" letter-spacing="-1">
+    <tspan fill="#0f172a">done</tspan><tspan fill="#16a34a">gate</tspan>
+  </text>
+</svg>
