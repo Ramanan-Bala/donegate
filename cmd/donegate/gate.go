@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/Ramanan-Bala/donegate/internal/adapters/claude"
+	"github.com/Ramanan-Bala/donegate/internal/adapters/jsonhook"
 	"github.com/Ramanan-Bala/donegate/internal/gate"
 	"github.com/spf13/cobra"
 )
@@ -51,14 +52,35 @@ func newGateCmd() *cobra.Command {
 				}
 				return nil
 
+			case "json":
+				in, err := jsonhook.ParseGate(cmd.InOrStdin())
+				if err != nil {
+					if werr := jsonhook.WriteGateError(cmd.OutOrStdout(), err); werr != nil {
+						fmt.Fprintf(cmd.ErrOrStderr(), "donegate gate: %v\n", werr)
+					}
+					return nil
+				}
+				out, err := gate.Run(gate.Options{Cwd: in.Cwd})
+				if err != nil {
+					if werr := jsonhook.WriteGateError(cmd.OutOrStdout(), err); werr != nil {
+						fmt.Fprintf(cmd.ErrOrStderr(), "donegate gate: %v\n", werr)
+					}
+					return nil
+				}
+				if err := jsonhook.WriteGate(cmd.OutOrStdout(), out); err != nil {
+					fmt.Fprintf(cmd.ErrOrStderr(), "donegate gate: %v\n", err)
+					return nil
+				}
+				return nil
+
 			default:
-				return fmt.Errorf("unsupported gate format %q (supported: text, claude)", format)
+				return fmt.Errorf("unsupported gate format %q (supported: text, claude, json)", format)
 			}
 		},
 	}
 
 	cmd.Flags().StringVar(&repo, "repo", ".", "Repository directory")
-	cmd.Flags().StringVar(&format, "format", "text", "Output format (text, claude)")
+	cmd.Flags().StringVar(&format, "format", "text", "Output format (text, claude, json)")
 
 	return cmd
 }

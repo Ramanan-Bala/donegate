@@ -12,6 +12,7 @@ import (
 	"github.com/Ramanan-Bala/donegate/internal/l2"
 	"github.com/Ramanan-Bala/donegate/internal/policy"
 	"github.com/Ramanan-Bala/donegate/internal/rules"
+	"gopkg.in/yaml.v3"
 )
 
 // Options configures a verification run against a base git ref.
@@ -28,11 +29,12 @@ type Options struct {
 
 // Result holds the resolved base commit, gate verdict, and sorted findings.
 type Result struct {
-	Base     string          `json:"base"`
-	Verdict  string          `json:"verdict"`
-	RuleIDs  []string        `json:"rule_ids"`
-	Findings []rules.Finding `json:"findings"`
-	Diff     *diff.Diff      `json:"-"`
+	Base        string          `json:"base"`
+	Verdict     string          `json:"verdict"`
+	RuleIDs     []string        `json:"rule_ids"`
+	Findings    []rules.Finding `json:"findings"`
+	Diff        *diff.Diff      `json:"-"`
+	PolicyBytes []byte          `json:"-"`
 }
 
 // Run loads the diff against opts.Base, applies the base-commit policy (or opts.Policy when non-nil),
@@ -52,10 +54,16 @@ func Run(opts Options) (*Result, error) {
 	}
 
 	pol := opts.Policy
+	var policyBytes []byte
 	if pol == nil {
-		pol, err = loadBasePolicy(d)
+		pol, policyBytes, err = loadBasePolicy(d)
 		if err != nil {
 			return nil, fmt.Errorf("verify: %w", err)
+		}
+	} else {
+		policyBytes, err = yaml.Marshal(pol)
+		if err != nil {
+			return nil, fmt.Errorf("verify: marshal policy: %w", err)
 		}
 	}
 
@@ -150,33 +158,39 @@ func Run(opts Options) (*Result, error) {
 	}
 
 	return &Result{
-		Base:     d.Base,
-		Verdict:  verdict,
-		RuleIDs:  ruleIDs,
-		Findings: findings,
-		Diff:     d,
+		Base:        d.Base,
+		Verdict:     verdict,
+		RuleIDs:     ruleIDs,
+		Findings:    findings,
+		Diff:        d,
+		PolicyBytes: policyBytes,
 	}, nil
 }
 
 // loadBasePolicy reads .donegate.yml from the base commit, falling back to policy.Default()
 // if the file did not exist there. Working-tree edits to .donegate.yml are ignored.
-func loadBasePolicy(d *diff.Diff) (*policy.Policy, error) {
+func loadBasePolicy(d *diff.Diff) (*policy.Policy, []byte, error) {
 	exists, err := baseFileExists(d.RepoDir, d.Base, ".donegate.yml")
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if !exists {
-		return policy.Default(), nil
+		pol := policy.Default()
+		defaultBytes, err := yaml.Marshal(pol)
+		if err != nil {
+			return nil, nil, fmt.Errorf("marshal default policy: %w", err)
+		}
+		return pol, defaultBytes, nil
 	}
 	data, err := d.ReadBase(".donegate.yml")
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	pol, err := policy.Parse(data)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return pol, nil
+	return pol, data, nil
 }
 
 func baseFileExists(repoDir, baseSHA, path string) (bool, error) {

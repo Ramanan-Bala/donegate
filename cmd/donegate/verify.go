@@ -5,8 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"path/filepath"
 	"strings"
+	"time"
 
+	"github.com/Ramanan-Bala/donegate/internal/evidence"
+	"github.com/Ramanan-Bala/donegate/internal/gitx"
 	"github.com/Ramanan-Bala/donegate/internal/rules"
 	"github.com/Ramanan-Bala/donegate/internal/verify"
 	"github.com/spf13/cobra"
@@ -19,11 +23,17 @@ func newVerifyCmd() *cobra.Command {
 	var repo string
 	var tier string
 	var asJSON bool
+	var asMD bool
+	var evidenceDir string
 
 	cmd := &cobra.Command{
 		Use:   "verify",
 		Short: "Verify changes against a base git ref",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if asJSON && asMD {
+				return fmt.Errorf("cannot combine --json and --md")
+			}
+
 			maxLevel, err := tierMaxLevel(tier)
 			if err != nil {
 				return err
@@ -38,14 +48,30 @@ func newVerifyCmd() *cobra.Command {
 				return err
 			}
 
+			var ev *evidence.Evidence
+			if evidenceDir != "" || asMD {
+				ev, err = buildVerifyEvidence(repo, tier, res)
+				if err != nil {
+					return err
+				}
+				if evidenceDir != "" {
+					if _, _, err := evidence.Write(evidenceDir, ev); err != nil {
+						return fmt.Errorf("write evidence: %w", err)
+					}
+				}
+			}
+
 			out := cmd.OutOrStdout()
-			if asJSON {
+			switch {
+			case asJSON:
 				enc := json.NewEncoder(out)
 				enc.SetIndent("", "  ")
 				if err := enc.Encode(res); err != nil {
 					return fmt.Errorf("encode json: %w", err)
 				}
-			} else {
+			case asMD:
+				fmt.Fprint(out, evidence.Markdown(ev))
+			default:
 				writeTextReport(out, res)
 			}
 
@@ -60,9 +86,69 @@ func newVerifyCmd() *cobra.Command {
 	cmd.Flags().StringVar(&repo, "repo", ".", "Repository directory")
 	cmd.Flags().StringVar(&tier, "tier", "strict", "Verification tier (fast, standard, strict)")
 	cmd.Flags().BoolVar(&asJSON, "json", false, "Print result as JSON")
+	cmd.Flags().BoolVar(&asMD, "md", false, "Print markdown evidence report")
+	cmd.Flags().StringVar(&evidenceDir, "evidence-dir", "", "Directory to write evidence.json and evidence.md")
 	_ = cmd.MarkFlagRequired("base")
 
 	return cmd
+}
+
+func buildVerifyEvidence(repo, tier string, res *verify.Result) (*evidence.Evidence, error) {
+	repoDir := repo
+	if res.Diff != nil && res.Diff.RepoDir != "" {
+		repoDir = res.Diff.RepoDir
+	}
+	if repoDir == "" {
+		repoDir = "."
+	}
+
+	var diffBytes []byte
+	if res.Diff != nil {
+		var err error
+		diffBytes, err = json.Marshal(res.Diff.Files)
+		if err != nil {
+			return nil, fmt.Errorf("encode diff files: %w", err)
+		}
+	}
+
+	return evidence.Build(evidence.Input{
+		Session:  "",
+		Harness:  "ci",
+		Repo:     resolveVerifyRepoIdentifier(repoDir),
+		Base:     res.Base,
+		Head:     resolveVerifyHead(repoDir),
+		Tier:     tier,
+		Blocks:   0,
+		RuleIDs:  res.RuleIDs,
+		Findings: res.Findings,
+		Policy:   res.PolicyBytes,
+		Diff:     diffBytes,
+		Now:      time.Now().UTC(),
+	}), nil
+}
+
+func resolveVerifyRepoIdentifier(repoDir string) string {
+	out, err := gitx.Output(repoDir, nil, "config", "--get", "remote.origin.url")
+	if err == nil {
+		if u := strings.TrimSpace(string(out)); u != "" {
+			return u
+		}
+	}
+	if abs, err := filepath.Abs(repoDir); err == nil {
+		if resolved, err := filepath.EvalSymlinks(abs); err == nil {
+			return resolved
+		}
+		return abs
+	}
+	return repoDir
+}
+
+func resolveVerifyHead(repoDir string) string {
+	out, err := gitx.Output(repoDir, nil, "rev-parse", "--verify", "HEAD")
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
 }
 
 func tierMaxLevel(tier string) (int, error) {

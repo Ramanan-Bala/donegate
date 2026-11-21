@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/Ramanan-Bala/donegate/internal/adapters/claude"
+	"github.com/Ramanan-Bala/donegate/internal/adapters/jsonhook"
 	"github.com/Ramanan-Bala/donegate/internal/gitx"
 	"github.com/Ramanan-Bala/donegate/internal/session"
 	"github.com/spf13/cobra"
@@ -60,40 +61,53 @@ func newSessionStartCmd() *cobra.Command {
 					fmt.Fprintf(cmd.ErrOrStderr(), "donegate session start: %v\n", err)
 					return nil
 				}
-				cwd := in.Cwd
-				if cwd == "" {
-					cwd = "."
+
+				sess, _, skipped, err := startOrReuseSession(in.Cwd, "claude-code", in.SessionID, in.Source)
+				if err != nil {
+					fmt.Fprintf(cmd.ErrOrStderr(), "donegate session start: %v\n", err)
+					return nil
 				}
-				if _, err := gitx.Output(cwd, nil, "rev-parse", "--show-toplevel"); err != nil {
+				if skipped {
 					return nil
 				}
 
-				var sess *session.Session
-				if (in.Source == "resume" || in.Source == "compact") && in.SessionID != "" {
-					if cur, err := session.Current(cwd); err == nil && cur.HarnessSession == in.SessionID {
-						sess = cur
-					}
+				if err := claude.WriteSessionStart(cmd.OutOrStdout(), sessionContextMessage(sess.ID)); err != nil {
+					fmt.Fprintf(cmd.ErrOrStderr(), "donegate session start: %v\n", err)
+					return nil
 				}
-				if sess == nil {
-					sess, err = session.StartWith(cwd, session.StartOptions{
-						Harness:        "claude-code",
-						HarnessSession: in.SessionID,
-					})
-					if err != nil {
-						fmt.Fprintf(cmd.ErrOrStderr(), "donegate session start: %v\n", err)
-						return nil
+				return nil
+
+			case "json":
+				in, err := jsonhook.ParseSessionStart(cmd.InOrStdin())
+				if err != nil {
+					if werr := jsonhook.WriteSessionStartError(cmd.OutOrStdout(), err); werr != nil {
+						fmt.Fprintf(cmd.ErrOrStderr(), "donegate session start: %v\n", werr)
 					}
+					return nil
 				}
 
-				ctxMsg := fmt.Sprintf("donegate is active for this repo (session %s). Existing tests, snapshots, test/lint config and .donegate.yml are read-only; you may add new test files. When you stop, donegate re-checks your work and will block with specific failures to fix.", sess.ID)
-				if err := claude.WriteSessionStart(cmd.OutOrStdout(), ctxMsg); err != nil {
+				sess, reused, skipped, err := startOrReuseSession(in.Cwd, harness, in.Session, in.Source)
+				if err != nil {
+					if werr := jsonhook.WriteSessionStartError(cmd.OutOrStdout(), err); werr != nil {
+						fmt.Fprintf(cmd.ErrOrStderr(), "donegate session start: %v\n", werr)
+					}
+					return nil
+				}
+				if skipped {
+					if werr := jsonhook.WriteSessionStartSkipped(cmd.OutOrStdout()); werr != nil {
+						fmt.Fprintf(cmd.ErrOrStderr(), "donegate session start: %v\n", werr)
+					}
+					return nil
+				}
+
+				if err := jsonhook.WriteSessionStart(cmd.OutOrStdout(), sess.ID, reused, sessionContextMessage(sess.ID)); err != nil {
 					fmt.Fprintf(cmd.ErrOrStderr(), "donegate session start: %v\n", err)
 					return nil
 				}
 				return nil
 
 			default:
-				return fmt.Errorf("unsupported session format %q (supported: text, claude)", format)
+				return fmt.Errorf("unsupported session format %q (supported: text, claude, json)", format)
 			}
 		},
 	}
@@ -101,7 +115,35 @@ func newSessionStartCmd() *cobra.Command {
 	cmd.Flags().StringVar(&repo, "repo", ".", "Repository directory")
 	cmd.Flags().StringVar(&harness, "harness", "manual", "Harness name")
 	cmd.Flags().BoolVar(&asJSON, "json", false, "Print session as JSON")
-	cmd.Flags().StringVar(&format, "format", "text", "Output format (text, claude)")
+	cmd.Flags().StringVar(&format, "format", "text", "Output format (text, claude, json)")
 
 	return cmd
+}
+
+func startOrReuseSession(cwd, harness, harnessSession, source string) (sess *session.Session, reused bool, skipped bool, err error) {
+	if cwd == "" {
+		cwd = "."
+	}
+	if _, err := gitx.Output(cwd, nil, "rev-parse", "--show-toplevel"); err != nil {
+		return nil, false, true, nil
+	}
+
+	if (source == "resume" || source == "compact") && harnessSession != "" {
+		if cur, err := session.Current(cwd); err == nil && cur.HarnessSession == harnessSession {
+			return cur, true, false, nil
+		}
+	}
+
+	sess, err = session.StartWith(cwd, session.StartOptions{
+		Harness:        harness,
+		HarnessSession: harnessSession,
+	})
+	if err != nil {
+		return nil, false, false, err
+	}
+	return sess, false, false, nil
+}
+
+func sessionContextMessage(sessionID string) string {
+	return fmt.Sprintf("donegate is active for this repo (session %s). Existing tests, snapshots, test/lint config and .donegate.yml are read-only; you may add new test files. When you stop, donegate re-checks your work and will block with specific failures to fix.", sessionID)
 }

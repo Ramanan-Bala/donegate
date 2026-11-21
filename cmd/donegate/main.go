@@ -17,6 +17,7 @@ func newRootCmd() *cobra.Command {
 	}
 	rootCmd.AddCommand(newGateCmd())
 	rootCmd.AddCommand(newGuardCmd())
+	rootCmd.AddCommand(newReportCmd())
 	rootCmd.AddCommand(newSessionCmd())
 	rootCmd.AddCommand(newInstallCmd())
 	rootCmd.AddCommand(newUninstallCmd())
@@ -29,7 +30,7 @@ func run(args []string) int {
 	rootCmd := newRootCmd()
 	rootCmd.SetArgs(args)
 	if err := rootCmd.Execute(); err != nil {
-		if errors.Is(err, errVerifyFailed) {
+		if errors.Is(err, errVerifyFailed) || errors.Is(err, errNoEvidence) {
 			return 1
 		}
 		fmt.Fprintf(os.Stderr, "donegate: %v\n", err)
