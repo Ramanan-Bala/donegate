@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/Ramanan-Bala/donegate/internal/adapters/agy"
 	"github.com/Ramanan-Bala/donegate/internal/adapters/claude"
 	"github.com/Ramanan-Bala/donegate/internal/adapters/jsonhook"
 	"github.com/Ramanan-Bala/donegate/internal/gitx"
@@ -106,8 +107,36 @@ func newSessionStartCmd() *cobra.Command {
 				}
 				return nil
 
+			case "agy":
+				in, err := agy.ParseSessionStart(cmd.InOrStdin())
+				if err != nil {
+					fmt.Fprintf(cmd.ErrOrStderr(), "donegate session start: %v\n", err)
+					_ = agy.WriteEmpty(cmd.OutOrStdout())
+					return nil
+				}
+
+				sess, _, skipped, err := startOrReuseSession(in.Cwd, "antigravity", in.ConversationID, "resume")
+				if err != nil {
+					fmt.Fprintf(cmd.ErrOrStderr(), "donegate session start: %v\n", err)
+					_ = agy.WriteEmpty(cmd.OutOrStdout())
+					return nil
+				}
+				if skipped {
+					if werr := agy.WriteEmpty(cmd.OutOrStdout()); werr != nil {
+						fmt.Fprintf(cmd.ErrOrStderr(), "donegate session start: %v\n", werr)
+					}
+					return nil
+				}
+
+				if err := agy.WriteSessionStart(cmd.OutOrStdout(), sessionContextMessage(sess.ID)); err != nil {
+					fmt.Fprintf(cmd.ErrOrStderr(), "donegate session start: %v\n", err)
+					_ = agy.WriteEmpty(cmd.OutOrStdout())
+					return nil
+				}
+				return nil
+
 			default:
-				return fmt.Errorf("unsupported session format %q (supported: text, claude, json)", format)
+				return fmt.Errorf("unsupported session format %q (supported: text, claude, json, agy)", format)
 			}
 		},
 	}
@@ -115,7 +144,7 @@ func newSessionStartCmd() *cobra.Command {
 	cmd.Flags().StringVar(&repo, "repo", ".", "Repository directory")
 	cmd.Flags().StringVar(&harness, "harness", "manual", "Harness name")
 	cmd.Flags().BoolVar(&asJSON, "json", false, "Print session as JSON")
-	cmd.Flags().StringVar(&format, "format", "text", "Output format (text, claude, json)")
+	cmd.Flags().StringVar(&format, "format", "text", "Output format (text, claude, json, agy)")
 
 	return cmd
 }

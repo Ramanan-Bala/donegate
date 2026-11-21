@@ -306,7 +306,9 @@ Read docs/SPEC.md. We're doing M0 and the start of M1.
 Stop after T001 passes its fixture and show me the plan for the remaining M1 rules.
 ```
 
-## Antigravity adapter (planned, M4b)
+## Antigravity adapter (M4b)
+
+Implemented: `--format agy`, `donegate install agy [--dir]`.
 
 Antigravity CLI (`agy`, v1.5.x) has a native, Claude-like hook system (`hooks.json`, documented in the CLI at `~/.gemini/antigravity-cli/builtin/skills/agy-customizations/docs/hooks.md`), so donegate plugs in with a third output format in the Go binary and no TypeScript shim.
 
@@ -334,7 +336,7 @@ Tool names and argument keys were confirmed from real agy transcripts on this ma
 
 **Open questions**
 
-- PreToolUse `"decision":"allow"` *auto-approves* the tool and bypasses the user's normal permission prompts. donegate must not do that: with no objection it needs a neutral answer. Verify whether `{}` (no decision) falls through to the normal permission flow; if not, ask the agy team for a "no opinion" value. Until then, emit `{}` on allow.
+- Resolved: {} is treated as deny; donegate answers {"decision":"ask"} when it has no objection, which defers to agy permission rules.
 - The hook's working directory is the folder containing `hooks.json`; donegate must always use the payload's `cwd` (as it does for the other harnesses).
 - Herdr workers run on agy. A user-level install gates every worker too. That is the point of the "gate your own orchestrator" roadmap item, but worker briefs must then add new test files instead of editing existing ones, and a task that legitimately changes tests needs `rules: {T001: off}` in the snapshot. Decide between a user-level and a per-repo install for the orchestrator setup.
 

@@ -3,9 +3,11 @@ package main
 import (
 	"fmt"
 
+	"github.com/Ramanan-Bala/donegate/internal/adapters/agy"
 	"github.com/Ramanan-Bala/donegate/internal/adapters/claude"
 	"github.com/Ramanan-Bala/donegate/internal/adapters/jsonhook"
 	"github.com/Ramanan-Bala/donegate/internal/gate"
+	"github.com/Ramanan-Bala/donegate/internal/gitx"
 	"github.com/spf13/cobra"
 )
 
@@ -73,14 +75,50 @@ func newGateCmd() *cobra.Command {
 				}
 				return nil
 
+			case "agy":
+				in, err := agy.ParseStop(cmd.InOrStdin())
+				if err != nil {
+					fmt.Fprintf(cmd.ErrOrStderr(), "donegate gate: %v\n", err)
+					_ = agy.WriteEmpty(cmd.OutOrStdout())
+					return nil
+				}
+				if in.TerminationReason != "NO_TOOL_CALL" {
+					if werr := agy.WriteEmpty(cmd.OutOrStdout()); werr != nil {
+						fmt.Fprintf(cmd.ErrOrStderr(), "donegate gate: %v\n", werr)
+					}
+					return nil
+				}
+				cwd := in.Cwd
+				if cwd == "" {
+					cwd = "."
+				}
+				if _, err := gitx.Output(cwd, nil, "rev-parse", "--show-toplevel"); err != nil {
+					if werr := agy.WriteEmpty(cmd.OutOrStdout()); werr != nil {
+						fmt.Fprintf(cmd.ErrOrStderr(), "donegate gate: %v\n", werr)
+					}
+					return nil
+				}
+				out, err := gate.Run(gate.Options{Cwd: cwd})
+				if err != nil {
+					fmt.Fprintf(cmd.ErrOrStderr(), "donegate gate: %v\n", err)
+					_ = agy.WriteEmpty(cmd.OutOrStdout())
+					return nil
+				}
+				if err := agy.WriteStop(cmd.OutOrStdout(), cmd.ErrOrStderr(), out); err != nil {
+					fmt.Fprintf(cmd.ErrOrStderr(), "donegate gate: %v\n", err)
+					_ = agy.WriteEmpty(cmd.OutOrStdout())
+					return nil
+				}
+				return nil
+
 			default:
-				return fmt.Errorf("unsupported gate format %q (supported: text, claude, json)", format)
+				return fmt.Errorf("unsupported gate format %q (supported: text, claude, json, agy)", format)
 			}
 		},
 	}
 
 	cmd.Flags().StringVar(&repo, "repo", ".", "Repository directory")
-	cmd.Flags().StringVar(&format, "format", "text", "Output format (text, claude, json)")
+	cmd.Flags().StringVar(&format, "format", "text", "Output format (text, claude, json, agy)")
 
 	return cmd
 }

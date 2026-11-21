@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 
+	"github.com/Ramanan-Bala/donegate/internal/adapters/agy"
 	"github.com/Ramanan-Bala/donegate/internal/adapters/claude"
 	"github.com/Ramanan-Bala/donegate/internal/adapters/jsonhook"
 	"github.com/Ramanan-Bala/donegate/internal/guard"
@@ -62,12 +63,35 @@ func newGuardCmd() *cobra.Command {
 				}
 				return nil
 
+			case "agy":
+				call, err := agy.ParsePreToolUse(cmd.InOrStdin())
+				if err != nil {
+					fmt.Fprintf(cmd.ErrOrStderr(), "donegate guard: %v\n", err)
+					_ = agy.WritePreToolUseAsk(cmd.OutOrStdout())
+					return nil
+				}
+
+				ctx, err := guard.LoadContext(call.Cwd)
+				if err != nil {
+					fmt.Fprintf(cmd.ErrOrStderr(), "donegate guard: %v\n", err)
+					_ = agy.WritePreToolUseAsk(cmd.OutOrStdout())
+					return nil
+				}
+
+				dec := guard.Decide(call, ctx)
+				if err := agy.WritePreToolUse(cmd.OutOrStdout(), dec); err != nil {
+					fmt.Fprintf(cmd.ErrOrStderr(), "donegate guard: %v\n", err)
+					_ = agy.WritePreToolUseAsk(cmd.OutOrStdout())
+					return nil
+				}
+				return nil
+
 			default:
-				return fmt.Errorf("unsupported guard format %q (supported: claude, json)", format)
+				return fmt.Errorf("unsupported guard format %q (supported: claude, json, agy)", format)
 			}
 		},
 	}
 
-	cmd.Flags().StringVar(&format, "format", "claude", "Hook JSON format (claude, json)")
+	cmd.Flags().StringVar(&format, "format", "claude", "Hook JSON format (claude, json, agy)")
 	return cmd
 }

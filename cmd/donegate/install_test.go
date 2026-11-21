@@ -306,3 +306,136 @@ func TestInstallAndUninstallShimCmd(t *testing.T) {
 		}
 	})
 }
+
+func TestInstallAndUninstallAgyCmd(t *testing.T) {
+	for _, harness := range []string{"agy", "antigravity"} {
+		t.Run(harness+"/install with --dir, idempotent reinstall, and uninstall", func(t *testing.T) {
+			tmp := t.TempDir()
+			t.Setenv("HOME", tmp)
+			dir := filepath.Join(tmp, ".agents")
+			hooksPath := filepath.Join(dir, "hooks.json")
+
+			root := newTestInstallRoot()
+			var stdout, stderr bytes.Buffer
+			root.SetOut(&stdout)
+			root.SetErr(&stderr)
+			root.SetArgs([]string{"install", harness, "--dir", dir, "--binary", "/x/donegate"})
+
+			if err := root.Execute(); err != nil {
+				t.Fatalf("install %s failed: %v (stderr=%s)", harness, err, stderr.String())
+			}
+			if !strings.Contains(stdout.String(), "installed Antigravity hooks in "+hooksPath) {
+				t.Errorf("stdout = %q, want installed message with %q", stdout.String(), hooksPath)
+			}
+
+			data, err := os.ReadFile(hooksPath)
+			if err != nil {
+				t.Fatalf("read hooks.json: %v", err)
+			}
+			if !strings.Contains(string(data), "/x/donegate guard --format agy") {
+				t.Errorf("expected agy guard hook in hooks.json:\n%s", string(data))
+			}
+
+			// Idempotent second install.
+			root2 := newTestInstallRoot()
+			stdout.Reset()
+			stderr.Reset()
+			root2.SetOut(&stdout)
+			root2.SetErr(&stderr)
+			root2.SetArgs([]string{"install", harness, "--dir", dir, "--binary", "/x/donegate"})
+
+			if err := root2.Execute(); err != nil {
+				t.Fatalf("second install %s failed: %v", harness, err)
+			}
+			if !strings.Contains(stdout.String(), "already installed") {
+				t.Errorf("stdout = %q, want 'already installed'", stdout.String())
+			}
+
+			// Uninstall.
+			root3 := newTestInstallRoot()
+			stdout.Reset()
+			stderr.Reset()
+			root3.SetOut(&stdout)
+			root3.SetErr(&stderr)
+			root3.SetArgs([]string{"uninstall", harness, "--dir", dir})
+
+			if err := root3.Execute(); err != nil {
+				t.Fatalf("uninstall %s failed: %v", harness, err)
+			}
+			if !strings.Contains(stdout.String(), "uninstalled Antigravity hooks") {
+				t.Errorf("stdout = %q, want uninstalled message", stdout.String())
+			}
+
+			afterData, err := os.ReadFile(hooksPath)
+			if err != nil {
+				t.Fatalf("read hooks.json after uninstall: %v", err)
+			}
+			var doc map[string]any
+			if err := json.Unmarshal(afterData, &doc); err != nil {
+				t.Fatalf("invalid json after uninstall: %v", err)
+			}
+			if _, exists := doc["donegate"]; exists {
+				t.Errorf("expected donegate key to be removed, got %v", doc)
+			}
+
+			// Second uninstall is a no-op.
+			root4 := newTestInstallRoot()
+			stdout.Reset()
+			stderr.Reset()
+			root4.SetOut(&stdout)
+			root4.SetErr(&stderr)
+			root4.SetArgs([]string{"uninstall", harness, "--dir", dir})
+
+			if err := root4.Execute(); err != nil {
+				t.Fatalf("second uninstall %s failed: %v", harness, err)
+			}
+			if !strings.Contains(stdout.String(), "no Antigravity hooks found") {
+				t.Errorf("stdout = %q, want 'no Antigravity hooks found'", stdout.String())
+			}
+		})
+	}
+
+	t.Run("install agy default HOME path and dry-run", func(t *testing.T) {
+		tmp := t.TempDir()
+		t.Setenv("HOME", tmp)
+		wantDefaultPath := filepath.Join(tmp, ".gemini", "config", "hooks.json")
+
+		root := newTestInstallRoot()
+		var stdout, stderr bytes.Buffer
+		root.SetOut(&stdout)
+		root.SetErr(&stderr)
+		root.SetArgs([]string{"install", "agy", "--binary", "/x/donegate", "--dry-run"})
+
+		if err := root.Execute(); err != nil {
+			t.Fatalf("install agy --dry-run failed: %v", err)
+		}
+		var doc map[string]any
+		if err := json.Unmarshal(stdout.Bytes(), &doc); err != nil {
+			t.Fatalf("dry-run stdout is not valid JSON: %v\noutput:\n%s", err, stdout.String())
+		}
+		if _, exists := doc["donegate"]; !exists {
+			t.Errorf("expected donegate key in dry-run JSON:\n%s", stdout.String())
+		}
+		if _, err := os.Stat(wantDefaultPath); !os.IsNotExist(err) {
+			t.Errorf("dry-run should not write file, stat err = %v", err)
+		}
+
+		// Real install to default HOME path.
+		root2 := newTestInstallRoot()
+		stdout.Reset()
+		stderr.Reset()
+		root2.SetOut(&stdout)
+		root2.SetErr(&stderr)
+		root2.SetArgs([]string{"install", "agy", "--binary", "/x/donegate"})
+
+		if err := root2.Execute(); err != nil {
+			t.Fatalf("install agy default path failed: %v", err)
+		}
+		if !strings.Contains(stdout.String(), wantDefaultPath) {
+			t.Errorf("stdout = %q, want path %q", stdout.String(), wantDefaultPath)
+		}
+		if _, err := os.Stat(wantDefaultPath); err != nil {
+			t.Errorf("expected file at %s: %v", wantDefaultPath, err)
+		}
+	})
+}
