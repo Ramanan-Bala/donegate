@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "types": ["node"],
+    "typeRoots": ["/Users/ramanan/.pi/agent/install/releases/1.6.0/node_modules/@types"],
+    "paths": {
+      "@opencode-ai/plugin": ["/Users/ramanan/.config/opencode/node_modules/@opencode-ai/plugin/dist/index.d.ts"],
+      "@earendil-works/pi-coding-agent": ["/Users/ramanan/.pi/agent/install/releases/1.6.0/node_modules/@earendil-works/pi-coding-agent/dist/index.d.ts"]
+    }
+  },
+  "include": ["opencode/**/*.ts", "pi/**/*.ts"]
+}

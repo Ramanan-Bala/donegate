@@ -9,6 +9,7 @@ import (
 
 func newInstallCmd() *cobra.Command {
 	var settingsPath string
+	var dir string
 	var binaryPath string
 	var noSubagent bool
 	var dryRun bool
@@ -53,22 +54,62 @@ func newInstallCmd() *cobra.Command {
 				}
 				fmt.Fprintf(out, "donegate: installed Claude Code hooks in %s\n", resolvedPath)
 				return nil
+			case "opencode", "pi":
+				opts := install.ShimOptions{
+					Dir:    dir,
+					Binary: binaryPath,
+					DryRun: dryRun,
+				}
+				var (
+					label   string
+					path    string
+					changed bool
+					err     error
+				)
+				if harness == "opencode" {
+					label = "OpenCode"
+					path, changed, err = install.InstallOpenCode(opts)
+				} else {
+					label = "pi"
+					path, changed, err = install.InstallPi(opts)
+				}
+				if err != nil {
+					return err
+				}
+
+				out := cmd.OutOrStdout()
+				if dryRun {
+					if !changed {
+						fmt.Fprintf(out, "donegate: %s shim already installed at %s (dry-run)\n", label, path)
+						return nil
+					}
+					fmt.Fprintf(out, "donegate: would install %s shim at %s\n", label, path)
+					return nil
+				}
+				if !changed {
+					fmt.Fprintf(out, "donegate: %s shim already installed at %s\n", label, path)
+					return nil
+				}
+				fmt.Fprintf(out, "donegate: installed %s shim at %s\n", label, path)
+				return nil
 			default:
-				return fmt.Errorf("harness %q is not supported yet (supported: claude)", harness)
+				return fmt.Errorf("harness %q is not supported yet (supported: claude, opencode, pi)", harness)
 			}
 		},
 	}
 
 	cmd.Flags().StringVar(&settingsPath, "settings", "", "Path to Claude Code settings.json (default ~/.claude/settings.json)")
+	cmd.Flags().StringVar(&dir, "dir", "", "Target directory for opencode plugin or pi extension")
 	cmd.Flags().StringVar(&binaryPath, "binary", "", "Absolute path to donegate binary (default current executable)")
 	cmd.Flags().BoolVar(&noSubagent, "no-subagent", false, "Do not install the SubagentStop hook")
-	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Print resulting settings JSON without writing")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Print planned changes without writing")
 
 	return cmd
 }
 
 func newUninstallCmd() *cobra.Command {
 	var settingsPath string
+	var dir string
 
 	cmd := &cobra.Command{
 		Use:   "uninstall <harness>",
@@ -101,13 +142,40 @@ func newUninstallCmd() *cobra.Command {
 				}
 				fmt.Fprintf(out, "donegate: uninstalled Claude Code hooks from %s\n", resolvedPath)
 				return nil
+			case "opencode", "pi":
+				opts := install.ShimOptions{Dir: dir}
+				var (
+					label   string
+					path    string
+					removed bool
+					err     error
+				)
+				if harness == "opencode" {
+					label = "OpenCode"
+					path, removed, err = install.UninstallOpenCode(opts)
+				} else {
+					label = "pi"
+					path, removed, err = install.UninstallPi(opts)
+				}
+				if err != nil {
+					return err
+				}
+
+				out := cmd.OutOrStdout()
+				if !removed {
+					fmt.Fprintf(out, "donegate: no %s shim found at %s\n", label, path)
+					return nil
+				}
+				fmt.Fprintf(out, "donegate: uninstalled %s shim from %s\n", label, path)
+				return nil
 			default:
-				return fmt.Errorf("harness %q is not supported yet (supported: claude)", harness)
+				return fmt.Errorf("harness %q is not supported yet (supported: claude, opencode, pi)", harness)
 			}
 		},
 	}
 
 	cmd.Flags().StringVar(&settingsPath, "settings", "", "Path to Claude Code settings.json (default ~/.claude/settings.json)")
+	cmd.Flags().StringVar(&dir, "dir", "", "Target directory for opencode plugin or pi extension")
 
 	return cmd
 }

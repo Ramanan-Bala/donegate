@@ -152,11 +152,11 @@ func TestInstallAndUninstallCmd(t *testing.T) {
 			subcmd  string
 			harness string
 		}{
-			{subcmd: "install", harness: "opencode"},
-			{subcmd: "install", harness: "pi"},
-			{subcmd: "uninstall", harness: "opencode"},
-			{subcmd: "uninstall", harness: "pi"},
+			{subcmd: "install", harness: "cursor"},
+			{subcmd: "uninstall", harness: "cursor"},
 		}
+		// opencode and pi are supported now; isolate HOME anyway so a regression can never touch the real one.
+		t.Setenv("HOME", t.TempDir())
 
 		for _, tc := range cases {
 			t.Run(tc.subcmd+"_"+tc.harness, func(t *testing.T) {
@@ -177,6 +177,132 @@ func TestInstallAndUninstallCmd(t *testing.T) {
 					t.Errorf("error = %q, want substring 'not supported yet'", err.Error())
 				}
 			})
+		}
+	})
+}
+
+func TestInstallAndUninstallShimCmd(t *testing.T) {
+	harnesses := []string{"opencode", "pi"}
+
+	for _, harness := range harnesses {
+		t.Run(harness+"/install idempotent reinstall and uninstall", func(t *testing.T) {
+			tmp := t.TempDir()
+			t.Setenv("HOME", tmp)
+			dir := filepath.Join(tmp, harness+"-dir")
+			wantFile := filepath.Join(dir, "donegate.ts")
+
+			// Fresh install.
+			root := newTestInstallRoot()
+			var stdout, stderr bytes.Buffer
+			root.SetOut(&stdout)
+			root.SetErr(&stderr)
+			root.SetArgs([]string{"install", harness, "--dir", dir, "--binary", "/x/donegate"})
+
+			if err := root.Execute(); err != nil {
+				t.Fatalf("install %s failed: %v (stderr=%s)", harness, err, stderr.String())
+			}
+			if !strings.Contains(stdout.String(), "installed") || !strings.Contains(stdout.String(), wantFile) {
+				t.Errorf("stdout = %q, want installed message with %q", stdout.String(), wantFile)
+			}
+
+			data, err := os.ReadFile(wantFile)
+			if err != nil {
+				t.Fatalf("read installed shim: %v", err)
+			}
+			if !strings.Contains(string(data), `"/x/donegate"`) {
+				t.Errorf("expected baked binary path in shim:\n%s", string(data))
+			}
+
+			// Idempotent second install.
+			root2 := newTestInstallRoot()
+			stdout.Reset()
+			stderr.Reset()
+			root2.SetOut(&stdout)
+			root2.SetErr(&stderr)
+			root2.SetArgs([]string{"install", harness, "--dir", dir, "--binary", "/x/donegate"})
+
+			if err := root2.Execute(); err != nil {
+				t.Fatalf("second install %s failed: %v", harness, err)
+			}
+			if !strings.Contains(stdout.String(), "already installed") {
+				t.Errorf("stdout = %q, want 'already installed'", stdout.String())
+			}
+
+			// Uninstall.
+			root3 := newTestInstallRoot()
+			stdout.Reset()
+			stderr.Reset()
+			root3.SetOut(&stdout)
+			root3.SetErr(&stderr)
+			root3.SetArgs([]string{"uninstall", harness, "--dir", dir})
+
+			if err := root3.Execute(); err != nil {
+				t.Fatalf("uninstall %s failed: %v", harness, err)
+			}
+			if !strings.Contains(stdout.String(), "uninstalled") {
+				t.Errorf("stdout = %q, want 'uninstalled'", stdout.String())
+			}
+			if _, err := os.Stat(wantFile); !os.IsNotExist(err) {
+				t.Errorf("expected %s to be removed, stat err = %v", wantFile, err)
+			}
+
+			// Second uninstall is a no-op.
+			root4 := newTestInstallRoot()
+			stdout.Reset()
+			stderr.Reset()
+			root4.SetOut(&stdout)
+			root4.SetErr(&stderr)
+			root4.SetArgs([]string{"uninstall", harness, "--dir", dir})
+
+			if err := root4.Execute(); err != nil {
+				t.Fatalf("second uninstall %s failed: %v", harness, err)
+			}
+			if !strings.Contains(stdout.String(), "no ") {
+				t.Errorf("stdout = %q, want 'no ... found' message", stdout.String())
+			}
+		})
+
+		t.Run(harness+"/dry-run writes nothing", func(t *testing.T) {
+			tmp := t.TempDir()
+			t.Setenv("HOME", tmp)
+			dir := filepath.Join(tmp, "dry-"+harness)
+
+			root := newTestInstallRoot()
+			var stdout, stderr bytes.Buffer
+			root.SetOut(&stdout)
+			root.SetErr(&stderr)
+			root.SetArgs([]string{"install", harness, "--dir", dir, "--binary", "/x/donegate", "--dry-run"})
+
+			if err := root.Execute(); err != nil {
+				t.Fatalf("dry-run install %s failed: %v", harness, err)
+			}
+			if !strings.Contains(stdout.String(), "would install") {
+				t.Errorf("stdout = %q, want 'would install'", stdout.String())
+			}
+			if _, err := os.Stat(dir); !os.IsNotExist(err) {
+				t.Errorf("dry-run should not create dir, stat err = %v", err)
+			}
+		})
+	}
+
+	t.Run("truly unknown harness returns not supported yet", func(t *testing.T) {
+		for _, subcmd := range []string{"install", "uninstall"} {
+			root := newTestInstallRoot()
+			var stdout, stderr bytes.Buffer
+			root.SetOut(&stdout)
+			root.SetErr(&stderr)
+			root.SetArgs([]string{subcmd, "unknown-harness"})
+
+			err := root.Execute()
+			if err == nil {
+				t.Fatalf("expected error for %s unknown-harness, got nil", subcmd)
+			}
+			if errors.Is(err, errVerifyFailed) {
+				t.Errorf("error must not be errVerifyFailed")
+			}
+			if !strings.Contains(err.Error(), "not supported yet") {
+				t.Errorf("error = %q, want substring 'not supported yet'", err.Error())
+			}
 		}
 	})
 }
