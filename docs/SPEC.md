@@ -306,6 +306,38 @@ Read docs/SPEC.md. We're doing M0 and the start of M1.
 Stop after T001 passes its fixture and show me the plan for the remaining M1 rules.
 ```
 
+## Antigravity adapter (planned, M4b)
+
+Antigravity CLI (`agy`, v1.5.x) has a native, Claude-like hook system (`hooks.json`, documented in the CLI at `~/.gemini/antigravity-cli/builtin/skills/agy-customizations/docs/hooks.md`), so donegate plugs in with a third output format in the Go binary and no TypeScript shim.
+
+**Where it installs**
+
+- User level: a named hook `"donegate"` merged into `~/.gemini/config/hooks.json`. Named hooks from different sources are merged and run in order, so existing hooks (such as the Herdr worker guard) stay untouched.
+- Project level (for tests and opt-in repos): `.agents/hooks.json`.
+- `donegate install agy` / `uninstall agy`, with the same idempotent merge and backup rules as `install claude`.
+
+**Mapping**
+
+| donegate moment | agy event | Input (stdin, camelCase) | donegate output (stdout) |
+| --- | --- | --- | --- |
+| Session start | `SessionStart` (flat handler list) | `conversationId`, `cwd`, `workspacePaths` | `{"injectSteps":[{"systemMessage":{"systemMessage":"donegate is active ..."}}]}` |
+| Edit guard | `PreToolUse`, matcher `write_file\|edit_file\|run_command` (plus future `*_file` write tools) | `toolCall.name`, `toolCall.args.Path` (write_file, edit_file), `toolCall.args.CommandLine` (run_command) | deny: `{"decision":"deny","reason":"donegate: ... (T001) ..."}` |
+| Done gate | `Stop` (flat) | `terminationReason`, `continuationActive`, `executionNum` | block: `{"decision":"continue","reason":"donegate: not done (...)"}`; only judge when `terminationReason == "NO_TOOL_CALL"` |
+
+Tool names and argument keys were confirmed from real agy transcripts on this machine: `write_file{Path,Content}`, `edit_file{Path,Target,Replacement}`, `run_command{CommandLine}`. The guard should treat an argument named `Path`, `TargetFile` or `AbsolutePath` as a write target for any tool whose name contains `write`, `edit`, `replace` or `delete`, so new tool variants are covered without a release.
+
+**Implementation units**
+
+1. `internal/adapters/agy` (parse/write the three contracts) plus `--format agy` on `session start`, `guard` and `gate`; harness name `antigravity`, harness session = `conversationId`.
+2. `internal/install/agy.go` plus `donegate install|uninstall agy [--dir]`.
+3. Live test in a temp repo with a project-level `.agents/hooks.json` and `agy -p` on a Flash model: the guard denies edit_file, write_file and run_command(sed) on an existing test and allows a new test file; Stop blocks a `NODE_ENV` cheat and the agent continues; evidence records `harness: antigravity`.
+
+**Open questions**
+
+- PreToolUse `"decision":"allow"` *auto-approves* the tool and bypasses the user's normal permission prompts. donegate must not do that: with no objection it needs a neutral answer. Verify whether `{}` (no decision) falls through to the normal permission flow; if not, ask the agy team for a "no opinion" value. Until then, emit `{}` on allow.
+- The hook's working directory is the folder containing `hooks.json`; donegate must always use the payload's `cwd` (as it does for the other harnesses).
+- Herdr workers run on agy. A user-level install gates every worker too. That is the point of the "gate your own orchestrator" roadmap item, but worker briefs must then add new test files instead of editing existing ones, and a task that legitimately changes tests needs `rules: {T001: off}` in the snapshot. Decide between a user-level and a per-repo install for the orchestrator setup.
+
 ## Risks, open questions, roadmap
 
 The biggest risk is annoying users with false positives. Treat every block as something to justify with a rule ID and a fix hint.
