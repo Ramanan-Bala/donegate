@@ -141,7 +141,13 @@ func Run(opts Options) (*Outcome, error) {
 		return nil, fmt.Errorf("gate: %w", err)
 	}
 
-	if (res.Diff == nil || len(res.Diff.Files) == 0) && len(tampered) == 0 {
+	statePath := filepath.Join(sess.Dir(), "gate.json")
+	state, err := readGateState(statePath)
+	if err != nil {
+		return nil, fmt.Errorf("gate: %w", err)
+	}
+
+	if (res.Diff == nil || len(res.Diff.Files) == 0) && len(tampered) == 0 && state.LastVerdict != "FAIL" {
 		return &Outcome{
 			Block:   false,
 			Verdict: "PASS",
@@ -153,12 +159,6 @@ func Run(opts Options) (*Outcome, error) {
 		nowFn = time.Now
 	}
 	now := nowFn().UTC()
-
-	statePath := filepath.Join(sess.Dir(), "gate.json")
-	state, err := readGateState(statePath)
-	if err != nil {
-		return nil, fmt.Errorf("gate: %w", err)
-	}
 
 	var blocks, warns []rules.Finding
 	for _, f := range res.Findings {

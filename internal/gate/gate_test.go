@@ -419,3 +419,59 @@ func TestRunH001DuplicateSuppressedWhenT001CoversSamePath(t *testing.T) {
 		t.Errorf("expected 1 failure in header:\n%s", out.Message)
 	}
 }
+
+func TestRunRevertAllChangesAfterBlockWritesPassEvidenceAndUpdatesState(t *testing.T) {
+	t.Setenv("DONEGATE_HOME", t.TempDir())
+	dir := initRepo(t, nil)
+
+	sess, err := session.Start(dir, "pi")
+	if err != nil {
+		t.Fatalf("session.Start failed: %v", err)
+	}
+
+	// Block once on an edited test file.
+	writeRepoFile(t, dir, "src/cart.test.ts", "test('total', () => expect(total()).toBe(99));\n")
+	outFail, err := Run(Options{Cwd: dir, Now: fixedNow()})
+	if err != nil {
+		t.Fatalf("Run fail case failed: %v", err)
+	}
+	if !outFail.Block || outFail.Verdict != "FAIL" {
+		t.Fatalf("got Block=%v Verdict=%q, want Block=true Verdict=FAIL", outFail.Block, outFail.Verdict)
+	}
+
+	// Revert the file completely so the diff is empty.
+	writeRepoFile(t, dir, "src/cart.test.ts", "test('total', () => expect(total()).toBe(1));\n")
+
+	outPass, err := Run(Options{Cwd: dir, Now: fixedNow()})
+	if err != nil {
+		t.Fatalf("Run pass case failed: %v", err)
+	}
+	if outPass.Block || outPass.Verdict != "PASS" {
+		t.Fatalf("got Block=%v Verdict=%q, want Block=false Verdict=PASS", outPass.Block, outPass.Verdict)
+	}
+	if !strings.Contains(outPass.UserMessage, "donegate: verified (0 warnings).") {
+		t.Errorf("unexpected UserMessage: %q", outPass.UserMessage)
+	}
+	if outPass.EvidencePath == "" {
+		t.Fatal("expected EvidencePath to be set")
+	}
+
+	ev, err := evidence.Read(outPass.EvidencePath)
+	if err != nil {
+		t.Fatalf("evidence.Read failed: %v", err)
+	}
+	if err := ev.Verify(); err != nil {
+		t.Fatalf("evidence.Verify failed: %v", err)
+	}
+	if ev.Verdict != "PASS" || ev.Blocks != 1 {
+		t.Errorf("evidence = verdict:%q blocks:%d, want PASS/1", ev.Verdict, ev.Blocks)
+	}
+
+	st, err := readGateState(filepath.Join(sess.Dir(), "gate.json"))
+	if err != nil {
+		t.Fatalf("readGateState failed: %v", err)
+	}
+	if st.LastVerdict != "PASS" || st.Blocks != 1 {
+		t.Errorf("gate.json = last_verdict:%q blocks:%d, want PASS/1", st.LastVerdict, st.Blocks)
+	}
+}
