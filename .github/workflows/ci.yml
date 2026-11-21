@@ -1,0 +1,84 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: stable
+
+      - name: Build
+        shell: bash
+        run: |
+          set -euo pipefail
+          go build ./...
+
+      - name: Vet
+        shell: bash
+        run: |
+          set -euo pipefail
+          go vet ./...
+
+      - name: Check formatting
+        shell: bash
+        run: |
+          set -euo pipefail
+          gofmt -l .
+          test -z "$(gofmt -l .)"
+
+      - name: Test
+        shell: bash
+        run: |
+          set -euo pipefail
+          go test -count=1 ./...
+
+  action-selftest:
+    name: Action self-test
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run donegate action
+        id: donegate
+        uses: ./
+        with:
+          comment: true
+
+      - name: Print action outputs
+        if: always()
+        shell: bash
+        env:
+          VERDICT: ${{ steps.donegate.outputs.verdict }}
+          EVIDENCE: ${{ steps.donegate.outputs.evidence }}
+        run: |
+          set -euo pipefail
+          echo "verdict=${VERDICT}"
+          echo "evidence=${EVIDENCE}"

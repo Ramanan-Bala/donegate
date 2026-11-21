@@ -1,0 +1,218 @@
+name: donegate
+description: Run donegate verify on pull requests and report verification evidence
+branding:
+  icon: shield
+  color: green
+
+inputs:
+  base:
+    description: Base git ref to diff against (defaults to origin/<base_ref> on pull_request events, else HEAD~1)
+    required: false
+    default: ''
+  tier:
+    description: Verification tier (fast, standard, or strict)
+    required: false
+    default: 'strict'
+  working-directory:
+    description: Path to the git repository to verify
+    required: false
+    default: '.'
+  comment:
+    description: Create or update a single PR comment with the verification report
+    required: false
+    default: 'true'
+  github-token:
+    description: GitHub token used to post or update PR comments
+    required: false
+    default: ${{ github.token }}
+  go-version:
+    description: Go version used to build donegate from this action
+    required: false
+    default: 'stable'
+
+outputs:
+  verdict:
+    description: Verification verdict (PASS or FAIL)
+    value: ${{ steps.verify.outputs.verdict }}
+  evidence:
+    description: Path to evidence.json produced by donegate verify
+    value: ${{ steps.verify.outputs.evidence }}
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ inputs.go-version }}
+        cache-dependency-path: ${{ github.action_path }}/go.sum
+
+    - name: Build donegate
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      run: |
+        set -euo pipefail
+        go build -o "$RUNNER_TEMP/donegate" ./cmd/donegate
+
+    - name: Run donegate verify
+      id: verify
+      shell: bash
+      env:
+        INPUT_BASE: ${{ inputs.base }}
+        TIER: ${{ inputs.tier }}
+        WORKDIR: ${{ inputs.working-directory }}
+        EVENT_NAME: ${{ github.event_name }}
+        BASE_REF: ${{ github.base_ref }}
+      run: |
+        set -euo pipefail
+
+        if [ -n "$INPUT_BASE" ]; then
+          base="$INPUT_BASE"
+        elif [ "$EVENT_NAME" = "pull_request" ] || [ "$EVENT_NAME" = "pull_request_target" ]; then
+          base="origin/$BASE_REF"
+        else
+          base="HEAD~1"
+        fi
+
+        if [ "$EVENT_NAME" = "pull_request" ] || [ "$EVENT_NAME" = "pull_request_target" ]; then
+          if [ -n "$BASE_REF" ] && [ "$base" = "origin/$BASE_REF" ]; then
+            if ! git -C "$WORKDIR" rev-parse --verify --quiet "${base}^{commit}" >/dev/null 2>&1; then
+              git -C "$WORKDIR" fetch --no-tags origin "$BASE_REF"
+              if ! git -C "$WORKDIR" rev-parse --verify --quiet "${base}^{commit}" >/dev/null 2>&1; then
+                git -C "$WORKDIR" update-ref "refs/remotes/origin/$BASE_REF" FETCH_HEAD
+              fi
+            fi
+          fi
+        fi
+
+        evidence_dir="$RUNNER_TEMP/donegate-evidence"
+        md_file="$RUNNER_TEMP/donegate.md"
+        mkdir -p "$evidence_dir"
+        rm -f "$evidence_dir/evidence.json" "$evidence_dir/evidence.md" "$md_file"
+
+        set +e
+        "$RUNNER_TEMP/donegate" verify \
+          --repo "$WORKDIR" \
+          --base "$base" \
+          --tier "$TIER" \
+          --evidence-dir "$evidence_dir" \
+          --md > "$md_file"
+        exit_code=$?
+        set -e
+
+        if [ -s "$md_file" ]; then
+          {
+            cat "$md_file"
+            printf '\n'
+          } >> "$GITHUB_STEP_SUMMARY"
+        fi
+
+        verdict=""
+        if [ "$exit_code" -eq 0 ]; then
+          verdict="PASS"
+        elif [ "$exit_code" -eq 1 ]; then
+          verdict="FAIL"
+        fi
+
+        evidence_path=""
+        if [ -f "$evidence_dir/evidence.json" ]; then
+          evidence_path="$evidence_dir/evidence.json"
+        fi
+
+        {
+          echo "verdict=$verdict"
+          echo "evidence=$evidence_path"
+          echo "exit-code=$exit_code"
+        } >> "$GITHUB_OUTPUT"
+
+    - name: Comment on pull request
+      if: inputs.comment == 'true' && (github.event_name == 'pull_request' || github.event_name == 'pull_request_target')
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        REPO: ${{ github.repository }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+        HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+        BASE_REPO: ${{ github.event.pull_request.base.repo.full_name }}
+        EVENT_NAME: ${{ github.event_name }}
+      run: |
+        set -euo pipefail
+
+        md_file="$RUNNER_TEMP/donegate.md"
+        if [ -z "$PR_NUMBER" ] || [ ! -s "$md_file" ]; then
+          exit 0
+        fi
+
+        if [ -z "${GH_TOKEN:-}" ]; then
+          echo "::warning::Skipping donegate PR comment: github-token is empty."
+          exit 0
+        fi
+
+        marker="<!-- donegate -->"
+        body_file="$RUNNER_TEMP/donegate-comment.md"
+        err_file="$RUNNER_TEMP/donegate-gh-err.log"
+        {
+          printf '%s\n\n' "$marker"
+          cat "$md_file"
+        } > "$body_file"
+
+        comment_ids=""
+        if ! comment_ids="$(
+          gh api --paginate \
+            "repos/${REPO}/issues/${PR_NUMBER}/comments" \
+            --jq '.[] | select((.body // "") | contains("<!-- donegate -->")) | .id' \
+            2>"$err_file"
+        )"; then
+          err_msg="$(tr '\n' ' ' < "$err_file" 2>/dev/null || true)"
+          echo "::warning::Skipping donegate PR comment: failed to list PR comments (${err_msg})."
+          exit 0
+        fi
+
+        comment_id="${comment_ids%%$'\n'*}"
+        if [ -n "$comment_id" ]; then
+          if ! gh api --silent --method PATCH \
+            "repos/${REPO}/issues/comments/${comment_id}" \
+            -F "body=@${body_file}" \
+            2>"$err_file"; then
+            err_msg="$(tr '\n' ' ' < "$err_file" 2>/dev/null || true)"
+            if [ "$EVENT_NAME" = "pull_request" ] && [ "$HEAD_REPO" != "$BASE_REPO" ]; then
+              echo "::warning::Skipping donegate PR comment on fork PR: token lacks write permission (${err_msg})."
+            else
+              echo "::warning::Failed to update donegate PR comment (${err_msg})."
+            fi
+          fi
+        else
+          if ! gh api --silent --method POST \
+            "repos/${REPO}/issues/${PR_NUMBER}/comments" \
+            -F "body=@${body_file}" \
+            2>"$err_file"; then
+            err_msg="$(tr '\n' ' ' < "$err_file" 2>/dev/null || true)"
+            if [ "$EVENT_NAME" = "pull_request" ] && [ "$HEAD_REPO" != "$BASE_REPO" ]; then
+              echo "::warning::Skipping donegate PR comment on fork PR: token lacks write permission (${err_msg})."
+            else
+              echo "::warning::Failed to create donegate PR comment (${err_msg})."
+            fi
+          fi
+        fi
+
+    - name: Enforce verify exit code
+      shell: bash
+      env:
+        VERIFY_EXIT_CODE: ${{ steps.verify.outputs.exit-code }}
+      run: |
+        set -euo pipefail
+        case "${VERIFY_EXIT_CODE:-2}" in
+          0)
+            exit 0
+            ;;
+          1)
+            exit 1
+            ;;
+          *)
+            echo "::error::donegate verify failed to run"
+            case "${VERIFY_EXIT_CODE:-2}" in
+              ''|*[!0-9]*) exit 2 ;;
+              *) exit "$VERIFY_EXIT_CODE" ;;
+            esac
+            ;;
+        esac

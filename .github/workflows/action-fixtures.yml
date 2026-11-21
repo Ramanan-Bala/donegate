@@ -1,0 +1,71 @@
+name: Action Fixtures
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fixture:
+    name: Fixture (${{ matrix.fixture }} -> ${{ matrix.expected }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - fixture: t001-test-modified
+            expected: FAIL
+          - fixture: honest-synthetic-source-fix
+            expected: PASS
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build fixture repo
+        id: setup
+        shell: bash
+        env:
+          FIXTURE: ${{ matrix.fixture }}
+        run: |
+          set -euo pipefail
+          dest="$(mktemp -d "${RUNNER_TEMP}/donegate-fixture-XXXXXX")"
+          bash .github/scripts/make-fixture-repo.sh "$FIXTURE" "$dest"
+          echo "repo=$dest" >> "$GITHUB_OUTPUT"
+
+      - name: Run donegate action
+        id: donegate
+        continue-on-error: true
+        uses: ./
+        with:
+          working-directory: ${{ steps.setup.outputs.repo }}
+          base: HEAD~1
+          comment: false
+
+      - name: Assert verdict
+        shell: bash
+        env:
+          EXPECTED: ${{ matrix.expected }}
+          ACTUAL: ${{ steps.donegate.outputs.verdict }}
+          OUTCOME: ${{ steps.donegate.outcome }}
+          EVIDENCE: ${{ steps.donegate.outputs.evidence }}
+        run: |
+          set -euo pipefail
+          echo "verdict=${ACTUAL} (expected=${EXPECTED}), outcome=${OUTCOME}, evidence=${EVIDENCE}"
+          if [ "$ACTUAL" != "$EXPECTED" ]; then
+            echo "::error::Expected verdict ${EXPECTED}, got ${ACTUAL}"
+            exit 1
+          fi
+          if [ "$EXPECTED" = "PASS" ] && [ "$OUTCOME" != "success" ]; then
+            echo "::error::Expected action outcome success for PASS, got ${OUTCOME}"
+            exit 1
+          fi
+          if [ "$EXPECTED" = "FAIL" ] && [ "$OUTCOME" != "failure" ]; then
+            echo "::error::Expected action outcome failure for FAIL, got ${OUTCOME}"
+            exit 1
+          fi
+          if [ -z "$EVIDENCE" ] || [ ! -f "$EVIDENCE" ]; then
+            echo "::error::Expected evidence.json to exist at ${EVIDENCE}"
+            exit 1
+          fi

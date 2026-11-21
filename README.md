@@ -1,6 +1,17 @@
-# donegate
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/logo-dark.svg">
+    <img alt="donegate" src="assets/logo.svg" width="360">
+  </picture>
+</p>
 
-**Let cheap models implement, but make them prove it.**
+<p align="center"><strong>Let cheap models implement, but make them prove it.</strong></p>
+
+<p align="center">
+  <a href="https://github.com/Ramanan-Bala/donegate/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/Ramanan-Bala/donegate/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-16a34a"></a>
+  <img alt="Go 1.27+" src="https://img.shields.io/badge/go-1.27%2B-0f172a">
+</p>
 
 donegate is a verification gate for AI coding agents. It stops an agent from declaring "done" until the work is actually proven: it makes the judge (tests, snapshots, test/lint config, hooks) read-only, then re-checks the agent's claim every time it tries to stop, using rules on the diff and a test run donegate controls itself. Every judged stop leaves a hashed evidence report you can attach to a PR.
 
@@ -86,6 +97,32 @@ donegate uninstall claude
 ```
 
 ### CI
+
+Add the GitHub Action to verify pull requests, write the report to the job summary, and post or update a single PR comment:
+
+```yaml
+name: donegate
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: Ramanan-Bala/donegate@main
+```
+
+`fetch-depth: 0` gives `donegate verify` full history against the PR base branch (without it, the action fetches the base ref automatically). Inputs: `base`, `tier` (default `strict`), `working-directory`, `comment` (default `true`), `github-token`, and `go-version`. Outputs: `verdict` (`PASS` or `FAIL`) and `evidence` (path to `evidence.json`).
+
+On any other CI provider, run the CLI directly:
 
 ```sh
 donegate verify --base origin/main            # strict tier by default
