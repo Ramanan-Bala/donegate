@@ -201,12 +201,13 @@ No. donegate runs entirely on your computer (or on GitHub, if you use the pull r
 Barely. Watching changes takes a few thousandths of a second. The check at the end takes about a second, plus the time your own tests take if you turned on Step 3. If nothing changed, there is no check at all.
 
 **What if my task really is to change a test?**
-Then it isn't cheating, and you can tell donegate. Add this to `.donegate.yml` before you start the assistant, and remove it afterwards:
+Then it isn't cheating, and you can approve it. In your own terminal (not the assistant's), run:
 
-```yaml
-rules:
-  T001: off
+```sh
+donegate allow T001 src/cart.test.ts
 ```
+
+donegate shows what you are approving and asks you to type `yes`. The approval lasts for the current session only and is listed in the report under "Approved exceptions", so reviewers can see it. Assistants cannot approve their own exceptions: donegate refuses to run this command outside a real terminal and blocks assistants from running it. Use `all` instead of `T001` to allow any protected change to that file, `donegate allow --list` to see approvals and `donegate allow --revoke <file>` to undo one.
 
 **Can the assistant just turn donegate off?**
 donegate blocks it from editing its own settings, its records and the assistant's hook settings, and it re-checks fingerprints of everything important on every "done". The pull request check on GitHub is the final safety net, since it runs where the assistant has no access at all.
@@ -305,6 +306,7 @@ rules:                    # override any rule's severity: off | warn | block
 | `donegate gate` | Run the stop gate (`--format text\|claude\|json`) |
 | `donegate verify --base <ref>` | Check a diff from a clean state (`--tier`, `--json`, `--md`, `--evidence-dir`) |
 | `donegate report` | Show the latest evidence for this repo (`--md`, `--json`, `--session`) |
+| `donegate allow <RULE\|all> <path>...` | Approve a protected change for the current session; human-only (interactive terminal + typed `yes`); `--list`, `--revoke` |
 | `donegate version` | Print the version |
 
 `verify` exit codes: `0` pass, `1` fail, `2` usage or runtime error.
