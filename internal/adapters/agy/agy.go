@@ -121,9 +121,15 @@ func WriteSessionStart(w io.Writer, context string) error {
 
 // ParsePreToolUse decodes agy's PreToolUse hook JSON into a guard.ToolCall.
 func ParsePreToolUse(r io.Reader) (guard.ToolCall, error) {
+	call, _, err := ParsePreToolUseWithSession(r)
+	return call, err
+}
+
+// ParsePreToolUseWithSession decodes agy's PreToolUse hook JSON into a guard.ToolCall and conversationId.
+func ParsePreToolUseWithSession(r io.Reader) (guard.ToolCall, string, error) {
 	var in preToolUseInput
 	if err := json.NewDecoder(r).Decode(&in); err != nil {
-		return guard.ToolCall{}, fmt.Errorf("parse pre-tool-use input: %w", err)
+		return guard.ToolCall{}, "", fmt.Errorf("parse pre-tool-use input: %w", err)
 	}
 
 	call := guard.ToolCall{
@@ -149,7 +155,7 @@ func ParsePreToolUse(r io.Reader) (guard.ToolCall, error) {
 		call.Tool = in.ToolCall.Name
 	}
 
-	return call, nil
+	return call, in.ConversationID, nil
 }
 
 // WritePreToolUse writes agy's PreToolUse deny JSON when d.Allow is false,

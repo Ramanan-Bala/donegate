@@ -158,7 +158,7 @@ func startOrReuseSession(cwd, harness, harnessSession, source string) (sess *ses
 	}
 
 	if (source == "resume" || source == "compact") && harnessSession != "" {
-		if cur, err := session.Current(cwd); err == nil && cur.HarnessSession == harnessSession {
+		if cur, err := session.CurrentFor(cwd, harnessSession); err == nil && cur.HarnessSession == harnessSession {
 			return cur, true, false, nil
 		}
 	}

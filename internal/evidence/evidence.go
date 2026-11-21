@@ -24,23 +24,32 @@ type Check struct {
 	Findings []rules.Finding `json:"findings,omitempty"`
 }
 
+// AllowedFinding records a blocking finding waived by a human-approved session allowance.
+type AllowedFinding struct {
+	Rule string `json:"rule"`
+	Path string `json:"path"`
+	By   string `json:"by"`
+	At   string `json:"at"`
+}
+
 // Evidence is the hashed verification report for a session or verify run.
 type Evidence struct {
-	Schema       string  `json:"schema"`
-	Session      string  `json:"session"`
-	Harness      string  `json:"harness"`
-	Model        string  `json:"model,omitempty"`
-	Repo         string  `json:"repo"`
-	Base         string  `json:"base"`
-	Head         string  `json:"head"`
-	Tier         string  `json:"tier"`
-	Verdict      string  `json:"verdict"`
-	Blocks       int     `json:"blocks"`
-	CreatedAt    string  `json:"created_at"`
-	Checks       []Check `json:"checks"`
-	PolicySHA256 string  `json:"policy_sha256"`
-	DiffSHA256   string  `json:"diff_sha256"`
-	ReportSHA256 string  `json:"report_sha256"`
+	Schema       string           `json:"schema"`
+	Session      string           `json:"session"`
+	Harness      string           `json:"harness"`
+	Model        string           `json:"model,omitempty"`
+	Repo         string           `json:"repo"`
+	Base         string           `json:"base"`
+	Head         string           `json:"head"`
+	Tier         string           `json:"tier"`
+	Verdict      string           `json:"verdict"`
+	Blocks       int              `json:"blocks"`
+	CreatedAt    string           `json:"created_at"`
+	Checks       []Check          `json:"checks"`
+	Allowed      []AllowedFinding `json:"allowed,omitempty"`
+	PolicySHA256 string           `json:"policy_sha256"`
+	DiffSHA256   string           `json:"diff_sha256"`
+	ReportSHA256 string           `json:"report_sha256"`
 }
 
 // Input provides the raw verification outputs used to construct an Evidence report.
@@ -55,6 +64,7 @@ type Input struct {
 	Blocks    int
 	RuleIDs   []string // every rule that ran
 	Findings  []rules.Finding
+	Allowed   []AllowedFinding
 	Policy    []byte // raw policy bytes used
 	Diff      []byte // raw diff text
 	Now       time.Time
@@ -121,6 +131,12 @@ func Build(in Input) *Evidence {
 		now = time.Now()
 	}
 
+	var allowed []AllowedFinding
+	if len(in.Allowed) > 0 {
+		allowed = make([]AllowedFinding, len(in.Allowed))
+		copy(allowed, in.Allowed)
+	}
+
 	e := &Evidence{
 		Schema:       Schema,
 		Session:      in.Session,
@@ -134,6 +150,7 @@ func Build(in Input) *Evidence {
 		Blocks:       in.Blocks,
 		CreatedAt:    now.UTC().Format(time.RFC3339),
 		Checks:       checks,
+		Allowed:      allowed,
 		PolicySHA256: sha256Hex(in.Policy),
 		DiffSHA256:   sha256Hex(in.Diff),
 	}

@@ -7,16 +7,22 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/Ramanan-Bala/donegate/internal/allow"
 	"github.com/Ramanan-Bala/donegate/internal/gitx"
 	"github.com/Ramanan-Bala/donegate/internal/policy"
 	"github.com/Ramanan-Bala/donegate/internal/session"
 )
 
-// LoadContext resolves the guard Context for cwd. When an active session exists,
-// it uses the session's snapshotted policy and protected baseline without reading
-// the working-tree policy. When no session exists, it falls back to git rev-parse
-// and the working-tree .donegate.yml (or policy.Default()).
+// LoadContext resolves the guard Context for cwd using the repository's current session.
 func LoadContext(cwd string) (Context, error) {
+	return LoadContextFor(cwd, "")
+}
+
+// LoadContextFor resolves the guard Context for cwd and harnessSession. When an active session
+// exists, it uses the session's snapshotted policy, protected baseline, and allowances without
+// reading the working-tree policy. When no session exists, it falls back to git rev-parse and the
+// working-tree .donegate.yml (or policy.Default()).
+func LoadContextFor(cwd, harnessSession string) (Context, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return Context{}, fmt.Errorf("resolve home dir: %w", err)
@@ -31,16 +37,21 @@ func LoadContext(cwd string) (Context, error) {
 		dir = "."
 	}
 
-	sess, err := session.Current(dir)
+	sess, err := session.CurrentFor(dir, harnessSession)
 	if err == nil {
 		pol, polErr := sess.Policy()
 		if polErr != nil {
 			return Context{}, fmt.Errorf("load session policy: %w", polErr)
 		}
+		allowed, allowErr := allow.List(sess)
+		if allowErr != nil {
+			return Context{}, fmt.Errorf("load session allowances: %w", allowErr)
+		}
 		return Context{
 			RepoRoot:  sess.Repo,
 			Policy:    pol,
 			Protected: sess.Protected,
+			Allowed:   allowed,
 			StateDir:  stateDir,
 			Home:      home,
 		}, nil

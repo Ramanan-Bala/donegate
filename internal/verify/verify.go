@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/Ramanan-Bala/donegate/internal/allow"
 	"github.com/Ramanan-Bala/donegate/internal/diff"
 	"github.com/Ramanan-Bala/donegate/internal/l2"
 	"github.com/Ramanan-Bala/donegate/internal/policy"
@@ -25,6 +26,7 @@ type Options struct {
 	Restore  []string
 	CacheDir string
 	Context  context.Context
+	Allowed  []allow.Allowance
 }
 
 // Result holds the resolved base commit, gate verdict, and sorted findings.
@@ -33,6 +35,7 @@ type Result struct {
 	Verdict     string          `json:"verdict"`
 	RuleIDs     []string        `json:"rule_ids"`
 	Findings    []rules.Finding `json:"findings"`
+	Allowed     []rules.Finding `json:"allowed,omitempty"`
 	Diff        *diff.Diff      `json:"-"`
 	PolicyBytes []byte          `json:"-"`
 }
@@ -101,6 +104,7 @@ func Run(opts Options) (*Result, error) {
 	l2Attempted := false
 	ruleIDs := []string{}
 	findings := []rules.Finding{}
+	var allowed []rules.Finding
 	for _, lvl := range levels {
 		for _, ar := range byLevel[lvl] {
 			if lvl == 2 && !l2Attempted {
@@ -130,6 +134,10 @@ func Run(opts Options) (*Result, error) {
 					f.RuleID = ar.rule.ID()
 				}
 				f.Severity = ar.sev
+				if f.Severity == rules.Block && allow.Allows(opts.Allowed, f.RuleID, f.Path) {
+					allowed = append(allowed, f)
+					continue
+				}
 				findings = append(findings, f)
 			}
 		}
@@ -139,22 +147,12 @@ func Run(opts Options) (*Result, error) {
 	}
 	sort.Strings(ruleIDs)
 
-	sort.Slice(findings, func(i, j int) bool {
-		if findings[i].RuleID != findings[j].RuleID {
-			return findings[i].RuleID < findings[j].RuleID
-		}
-		if findings[i].Path != findings[j].Path {
-			return findings[i].Path < findings[j].Path
-		}
-		return findings[i].Line < findings[j].Line
-	})
+	sortFindings(findings)
+	sortFindings(allowed)
 
 	verdict := "PASS"
-	for _, f := range findings {
-		if f.Severity == rules.Block {
-			verdict = "FAIL"
-			break
-		}
+	if hasBlockFinding(findings) {
+		verdict = "FAIL"
 	}
 
 	return &Result{
@@ -162,6 +160,7 @@ func Run(opts Options) (*Result, error) {
 		Verdict:     verdict,
 		RuleIDs:     ruleIDs,
 		Findings:    findings,
+		Allowed:     allowed,
 		Diff:        d,
 		PolicyBytes: policyBytes,
 	}, nil
@@ -207,6 +206,18 @@ func baseFileExists(repoDir, baseSHA, path string) (bool, error) {
 		return false, fmt.Errorf("check %s in base %s: %w", path, baseSHA, err)
 	}
 	return strings.TrimSpace(stdout.String()) != "", nil
+}
+
+func sortFindings(findings []rules.Finding) {
+	sort.Slice(findings, func(i, j int) bool {
+		if findings[i].RuleID != findings[j].RuleID {
+			return findings[i].RuleID < findings[j].RuleID
+		}
+		if findings[i].Path != findings[j].Path {
+			return findings[i].Path < findings[j].Path
+		}
+		return findings[i].Line < findings[j].Line
+	})
 }
 
 func hasBlockFinding(findings []rules.Finding) bool {

@@ -15,6 +15,7 @@ func newRootCmd() *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}
+	rootCmd.AddCommand(newAllowCmd())
 	rootCmd.AddCommand(newGateCmd())
 	rootCmd.AddCommand(newGuardCmd())
 	rootCmd.AddCommand(newReportCmd())
@@ -32,6 +33,10 @@ func run(args []string) int {
 	if err := rootCmd.Execute(); err != nil {
 		if errors.Is(err, errVerifyFailed) || errors.Is(err, errNoEvidence) {
 			return 1
+		}
+		if errors.Is(err, errAllowHumanOnly) {
+			fmt.Fprintln(os.Stderr, err)
+			return 2
 		}
 		fmt.Fprintf(os.Stderr, "donegate: %v\n", err)
 		return 2

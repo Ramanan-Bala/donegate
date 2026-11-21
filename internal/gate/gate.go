@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Ramanan-Bala/donegate/internal/allow"
 	"github.com/Ramanan-Bala/donegate/internal/evidence"
 	"github.com/Ramanan-Bala/donegate/internal/gitx"
 	"github.com/Ramanan-Bala/donegate/internal/policy"
@@ -22,8 +23,9 @@ import (
 
 // Options configures a donegate gate run.
 type Options struct {
-	Cwd string
-	Now func() time.Time // nil -> time.Now
+	Cwd            string
+	HarnessSession string
+	Now            func() time.Time // nil -> time.Now
 }
 
 // Outcome describes the gate decision, messages, retry attempt, and evidence path.
@@ -45,7 +47,7 @@ type gateState struct {
 
 // Run evaluates the active session's changes against the snapshotted policy and updates retry state and evidence.
 func Run(opts Options) (*Outcome, error) {
-	sess, err := session.Current(opts.Cwd)
+	sess, err := session.CurrentFor(opts.Cwd, opts.HarnessSession)
 	if err != nil {
 		if errors.Is(err, session.ErrNoSession) {
 			return &Outcome{
@@ -54,6 +56,11 @@ func Run(opts Options) (*Outcome, error) {
 			}, nil
 		}
 		return nil, fmt.Errorf("gate: load current session: %w", err)
+	}
+
+	allowances, err := allow.List(sess)
+	if err != nil {
+		return nil, fmt.Errorf("gate: load allowances: %w", err)
 	}
 
 	mismatches, err := sess.CheckProtected()
@@ -124,6 +131,9 @@ func Run(opts Options) (*Outcome, error) {
 
 	restore := make([]string, 0, len(sess.Protected))
 	for p := range sess.Protected {
+		if allow.Allows(allowances, "H001", p) {
+			continue
+		}
 		restore = append(restore, p)
 	}
 	sort.Strings(restore)
@@ -136,6 +146,7 @@ func Run(opts Options) (*Outcome, error) {
 		MaxLevel: maxLevel,
 		Restore:  restore,
 		CacheDir: sess.Dir(),
+		Allowed:  allowances,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("gate: %w", err)
@@ -160,7 +171,11 @@ func Run(opts Options) (*Outcome, error) {
 	}
 	now := nowFn().UTC()
 
-	var blocks, warns []rules.Finding
+	var (
+		blocks          []rules.Finding
+		warns           []rules.Finding
+		allowedFindings []evidence.AllowedFinding
+	)
 	for _, f := range res.Findings {
 		switch f.Severity {
 		case rules.Block:
@@ -169,14 +184,37 @@ func Run(opts Options) (*Outcome, error) {
 			warns = append(warns, f)
 		}
 	}
+	seenAllowed := make(map[string]bool)
+	for _, f := range res.Allowed {
+		m, ok := allow.Match(allowances, f.RuleID, f.Path)
+		if !ok {
+			continue
+		}
+		key := f.RuleID + "\x00" + f.Path
+		if seenAllowed[key] {
+			continue
+		}
+		seenAllowed[key] = true
+		allowedFindings = append(allowedFindings, evidence.AllowedFinding{
+			Rule: f.RuleID,
+			Path: f.Path,
+			By:   m.By,
+			At:   m.At,
+		})
+	}
+
+	verdict := "PASS"
+	if len(blocks) > 0 {
+		verdict = "FAIL"
+	}
 
 	out := &Outcome{
-		Verdict:   res.Verdict,
+		Verdict:   verdict,
 		MaxBlocks: maxBlocks,
 	}
 	forceFail := false
 
-	if res.Verdict == "FAIL" {
+	if verdict == "FAIL" {
 		state.Blocks++
 		state.LastVerdict = "FAIL"
 		state.UpdatedAt = now.Format(time.RFC3339)
@@ -218,6 +256,7 @@ func Run(opts Options) (*Outcome, error) {
 		Blocks:    state.Blocks,
 		RuleIDs:   res.RuleIDs,
 		Findings:  res.Findings,
+		Allowed:   allowedFindings,
 		Policy:    policyBytes,
 		Diff:      diffBytes,
 		Now:       now,
@@ -231,7 +270,7 @@ func Run(opts Options) (*Outcome, error) {
 
 	if forceFail {
 		out.UserMessage = fmt.Sprintf("donegate: gave up after %d blocks; the work is NOT verified. Evidence: %s", maxBlocks, jsonPath)
-	} else if res.Verdict == "PASS" {
+	} else if verdict == "PASS" {
 		out.UserMessage = fmt.Sprintf("donegate: verified (%s). Evidence: %s", countLabel(len(warns), "warning", "warnings"), jsonPath)
 	}
 

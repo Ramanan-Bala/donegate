@@ -143,6 +143,31 @@ func Load(id string) (*Session, error) {
 	return &s, nil
 }
 
+// CurrentFor loads the active session for harnessSession in the repository containing repoDir,
+// falling back to Current(repoDir) if harnessSession is empty or has no recorded mapping.
+func CurrentFor(repoDir, harnessSession string) (*Session, error) {
+	if harnessSession != "" {
+		repoRoot, err := resolveRepoRoot(repoDir)
+		if err != nil {
+			return nil, err
+		}
+		stateDir, err := StateDir()
+		if err != nil {
+			return nil, err
+		}
+		ptrPath := filepath.Join(stateDir, "repos", repoKey(repoRoot), "harness", shortHash(harnessSession))
+		data, err := os.ReadFile(ptrPath)
+		if err == nil {
+			if id := strings.TrimSpace(string(data)); id != "" {
+				return Load(id)
+			}
+		} else if !errors.Is(err, os.ErrNotExist) {
+			return nil, fmt.Errorf("read harness session pointer: %w", err)
+		}
+	}
+	return Current(repoDir)
+}
+
 // Current loads the active session for the repository containing repoDir.
 func Current(repoDir string) (*Session, error) {
 	repoRoot, err := resolveRepoRoot(repoDir)
@@ -398,11 +423,25 @@ func writeSessionState(sess *Session, policyBytes []byte) error {
 	if err := os.WriteFile(filepath.Join(repoStateDir, "current"), []byte(sess.ID+"\n"), 0o600); err != nil {
 		return fmt.Errorf("write current session pointer: %w", err)
 	}
+	if sess.HarnessSession != "" {
+		harnessDir := filepath.Join(repoStateDir, "harness")
+		if err := os.MkdirAll(harnessDir, 0o700); err != nil {
+			return fmt.Errorf("create harness session dir: %w", err)
+		}
+		harnessPath := filepath.Join(harnessDir, shortHash(sess.HarnessSession))
+		if err := os.WriteFile(harnessPath, []byte(sess.ID+"\n"), 0o600); err != nil {
+			return fmt.Errorf("write harness session pointer: %w", err)
+		}
+	}
 	return nil
 }
 
 func repoKey(repoRoot string) string {
-	sum := sha256.Sum256([]byte(repoRoot))
+	return shortHash(repoRoot)
+}
+
+func shortHash(s string) string {
+	sum := sha256.Sum256([]byte(s))
 	return hex.EncodeToString(sum[:])[:16]
 }
 

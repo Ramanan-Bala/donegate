@@ -20,13 +20,13 @@ func newGuardCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			switch format {
 			case "claude":
-				call, err := claude.ParsePreToolUse(cmd.InOrStdin())
+				call, harnessSession, err := claude.ParsePreToolUseWithSession(cmd.InOrStdin())
 				if err != nil {
 					fmt.Fprintf(cmd.ErrOrStderr(), "donegate guard: %v\n", err)
 					return nil
 				}
 
-				ctx, err := guard.LoadContext(call.Cwd)
+				ctx, err := guard.LoadContextFor(call.Cwd, harnessSession)
 				if err != nil {
 					fmt.Fprintf(cmd.ErrOrStderr(), "donegate guard: %v\n", err)
 					return nil
@@ -40,7 +40,7 @@ func newGuardCmd() *cobra.Command {
 				return nil
 
 			case "json":
-				call, err := jsonhook.ParseGuard(cmd.InOrStdin())
+				call, harnessSession, err := jsonhook.ParseGuardWithSession(cmd.InOrStdin())
 				if err != nil {
 					if werr := jsonhook.WriteGuardError(cmd.OutOrStdout(), err); werr != nil {
 						fmt.Fprintf(cmd.ErrOrStderr(), "donegate guard: %v\n", werr)
@@ -48,7 +48,7 @@ func newGuardCmd() *cobra.Command {
 					return nil
 				}
 
-				ctx, err := guard.LoadContext(call.Cwd)
+				ctx, err := guard.LoadContextFor(call.Cwd, harnessSession)
 				if err != nil {
 					if werr := jsonhook.WriteGuardError(cmd.OutOrStdout(), err); werr != nil {
 						fmt.Fprintf(cmd.ErrOrStderr(), "donegate guard: %v\n", werr)
@@ -64,14 +64,14 @@ func newGuardCmd() *cobra.Command {
 				return nil
 
 			case "agy":
-				call, err := agy.ParsePreToolUse(cmd.InOrStdin())
+				call, harnessSession, err := agy.ParsePreToolUseWithSession(cmd.InOrStdin())
 				if err != nil {
 					fmt.Fprintf(cmd.ErrOrStderr(), "donegate guard: %v\n", err)
 					_ = agy.WritePreToolUseAsk(cmd.OutOrStdout())
 					return nil
 				}
 
-				ctx, err := guard.LoadContext(call.Cwd)
+				ctx, err := guard.LoadContextFor(call.Cwd, harnessSession)
 				if err != nil {
 					fmt.Fprintf(cmd.ErrOrStderr(), "donegate guard: %v\n", err)
 					_ = agy.WritePreToolUseAsk(cmd.OutOrStdout())

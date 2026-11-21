@@ -16,6 +16,7 @@ type GuardInput struct {
 	Paths   []string `json:"paths"`
 	Command string   `json:"command"`
 	Cwd     string   `json:"cwd"`
+	Session string   `json:"session,omitempty"`
 }
 
 // GuardOutput is the stdout JSON payload for `donegate guard --format json`.
@@ -63,9 +64,15 @@ type SessionStartOutput struct {
 
 // ParseGuard decodes a harness-neutral guard hook JSON object into a guard.ToolCall.
 func ParseGuard(r io.Reader) (guard.ToolCall, error) {
+	call, _, err := ParseGuardWithSession(r)
+	return call, err
+}
+
+// ParseGuardWithSession decodes a harness-neutral guard hook JSON object into a guard.ToolCall and session ID.
+func ParseGuardWithSession(r io.Reader) (guard.ToolCall, string, error) {
 	var in GuardInput
 	if err := json.NewDecoder(r).Decode(&in); err != nil {
-		return guard.ToolCall{}, fmt.Errorf("parse guard input: %w", err)
+		return guard.ToolCall{}, "", fmt.Errorf("parse guard input: %w", err)
 	}
 
 	call := guard.ToolCall{
@@ -88,7 +95,7 @@ func ParseGuard(r io.Reader) (guard.ToolCall, error) {
 		}
 	}
 
-	return call, nil
+	return call, in.Session, nil
 }
 
 // WriteGuard writes a guard decision as a single JSON line.

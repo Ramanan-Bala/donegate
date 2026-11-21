@@ -78,9 +78,27 @@ func Markdown(e *Evidence) string {
 		}
 	}
 
+	if len(e.Allowed) > 0 {
+		b.WriteString("\n### Approved exceptions\n\n")
+		for _, a := range e.Allowed {
+			writeAllowedBullet(&b, a)
+		}
+	}
+
 	fmt.Fprintf(&b, "\nReport SHA-256: `%s`\n", shortPrefix(e.ReportSHA256, 12))
 
 	return b.String()
+}
+
+func writeAllowedBullet(b *strings.Builder, a AllowedFinding) {
+	switch {
+	case a.By != "" && a.At != "":
+		fmt.Fprintf(b, "- `%s` %s (approved by %s at %s)\n", a.Rule, a.Path, a.By, a.At)
+	case a.By != "":
+		fmt.Fprintf(b, "- `%s` %s (approved by %s)\n", a.Rule, a.Path, a.By)
+	default:
+		fmt.Fprintf(b, "- `%s` %s\n", a.Rule, a.Path)
+	}
 }
 
 func writeFindingBullet(b *strings.Builder, f rules.Finding) {

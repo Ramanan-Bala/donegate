@@ -43,7 +43,7 @@ func newGateCmd() *cobra.Command {
 					fmt.Fprintf(cmd.ErrOrStderr(), "donegate gate: %v\n", err)
 					return nil
 				}
-				out, err := gate.Run(gate.Options{Cwd: in.Cwd})
+				out, err := gate.Run(gate.Options{Cwd: in.Cwd, HarnessSession: in.SessionID})
 				if err != nil {
 					fmt.Fprintf(cmd.ErrOrStderr(), "donegate gate: %v\n", err)
 					return nil
@@ -62,7 +62,7 @@ func newGateCmd() *cobra.Command {
 					}
 					return nil
 				}
-				out, err := gate.Run(gate.Options{Cwd: in.Cwd})
+				out, err := gate.Run(gate.Options{Cwd: in.Cwd, HarnessSession: in.Session})
 				if err != nil {
 					if werr := jsonhook.WriteGateError(cmd.OutOrStdout(), err); werr != nil {
 						fmt.Fprintf(cmd.ErrOrStderr(), "donegate gate: %v\n", werr)
@@ -98,7 +98,7 @@ func newGateCmd() *cobra.Command {
 					}
 					return nil
 				}
-				out, err := gate.Run(gate.Options{Cwd: cwd})
+				out, err := gate.Run(gate.Options{Cwd: cwd, HarnessSession: in.ConversationID})
 				if err != nil {
 					fmt.Fprintf(cmd.ErrOrStderr(), "donegate gate: %v\n", err)
 					_ = agy.WriteEmpty(cmd.OutOrStdout())

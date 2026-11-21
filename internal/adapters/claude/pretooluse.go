@@ -40,9 +40,15 @@ type preToolUseOutput struct {
 
 // ParsePreToolUse decodes Claude Code's PreToolUse hook JSON into a guard.ToolCall.
 func ParsePreToolUse(r io.Reader) (guard.ToolCall, error) {
+	call, _, err := ParsePreToolUseWithSession(r)
+	return call, err
+}
+
+// ParsePreToolUseWithSession decodes Claude Code's PreToolUse hook JSON into a guard.ToolCall and session ID.
+func ParsePreToolUseWithSession(r io.Reader) (guard.ToolCall, string, error) {
 	var in preToolUseInput
 	if err := json.NewDecoder(r).Decode(&in); err != nil {
-		return guard.ToolCall{}, fmt.Errorf("parse pre-tool-use input: %w", err)
+		return guard.ToolCall{}, "", fmt.Errorf("parse pre-tool-use input: %w", err)
 	}
 
 	call := guard.ToolCall{
@@ -55,7 +61,7 @@ func ParsePreToolUse(r io.Reader) (guard.ToolCall, error) {
 		if len(in.ToolInput) > 0 && string(in.ToolInput) != "null" {
 			var ti fileToolInput
 			if err := json.Unmarshal(in.ToolInput, &ti); err != nil {
-				return guard.ToolCall{}, fmt.Errorf("parse %s tool_input: %w", in.ToolName, err)
+				return guard.ToolCall{}, "", fmt.Errorf("parse %s tool_input: %w", in.ToolName, err)
 			}
 			if ti.FilePath != "" {
 				call.Paths = []string{ti.FilePath}
@@ -65,7 +71,7 @@ func ParsePreToolUse(r io.Reader) (guard.ToolCall, error) {
 		if len(in.ToolInput) > 0 && string(in.ToolInput) != "null" {
 			var ti notebookToolInput
 			if err := json.Unmarshal(in.ToolInput, &ti); err != nil {
-				return guard.ToolCall{}, fmt.Errorf("parse NotebookEdit tool_input: %w", err)
+				return guard.ToolCall{}, "", fmt.Errorf("parse NotebookEdit tool_input: %w", err)
 			}
 			if ti.NotebookPath != "" {
 				call.Paths = []string{ti.NotebookPath}
@@ -75,13 +81,13 @@ func ParsePreToolUse(r io.Reader) (guard.ToolCall, error) {
 		if len(in.ToolInput) > 0 && string(in.ToolInput) != "null" {
 			var ti bashToolInput
 			if err := json.Unmarshal(in.ToolInput, &ti); err != nil {
-				return guard.ToolCall{}, fmt.Errorf("parse Bash tool_input: %w", err)
+				return guard.ToolCall{}, "", fmt.Errorf("parse Bash tool_input: %w", err)
 			}
 			call.Command = ti.Command
 		}
 	}
 
-	return call, nil
+	return call, in.SessionID, nil
 }
 
 // WritePreToolUse writes Claude Code's PreToolUse deny JSON when d.Allow is false,

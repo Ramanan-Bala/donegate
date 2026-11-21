@@ -347,7 +347,7 @@ The biggest risk is annoying users with false positives. Treat every block as so
 | Risk                                                          | Mitigation                                                                                                                          |
 | ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
 | False positives make people uninstall it                      | Honest-diff controls in the cheat zoo; every rule has a severity override; `warn` by default for heuristic rules (S001, S004, C002) |
-| Legitimate test edits (the task _is_ to change a test)        | `donegate allow T001 <path> --once` asked of the human, never the agent; or start the session with `--allow-test-edits`             |
+| Legitimate test edits (the task _is_ to change a test)        | `donegate allow <RULE\|all> <path>...` (plus `--list` / `--revoke <path>...`); protected by requiring an interactive TTY and typing `yes`, while the edit guard blocks agents from running `donegate allow` via Bash |
 | Slow gates on big suites                                      | Run only affected projects; Jest `--findRelatedTests` / Vitest `--changed`; mutation only in `verify`                               |
 | Agents learn the rules                                        | Lean on behavioural checks (clean runs, held-out tests, mutation) over patterns                                                     |
 | Same-user tamper (see Architecture)                           | Hash checks, guard on state paths, CI re-verify, devcontainer for unattended runs                                                   |
