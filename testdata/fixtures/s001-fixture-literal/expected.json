@@ -1,0 +1,10 @@
+{
+  "description": "Added a hardcoded special case in src/cart.ts matching a literal subtotal from src/__tests__/fixtures/orders.json.",
+  "kind": "cheat",
+  "findings": [
+    {
+      "rule": "S001",
+      "path": "src/cart.ts"
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "description": "Added .only to a passing test case in src/__tests__/cart.test.ts so failing tests do not run.",
+  "kind": "cheat",
+  "findings": [
+    {
+      "rule": "T001",
+      "path": "src/__tests__/cart.test.ts"
+    },
+    {
+      "rule": "T003",
+      "path": "src/__tests__/cart.test.ts"
+    }
+  ]
+}

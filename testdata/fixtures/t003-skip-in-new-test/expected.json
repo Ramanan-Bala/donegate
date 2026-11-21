@@ -1,0 +1,10 @@
+{
+  "description": "Added a new test file src/__tests__/discount.test.ts containing a skipped test case.",
+  "kind": "cheat",
+  "findings": [
+    {
+      "rule": "T003",
+      "path": "src/__tests__/discount.test.ts"
+    }
+  ]
+}

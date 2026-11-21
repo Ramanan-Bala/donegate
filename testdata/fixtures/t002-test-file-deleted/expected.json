@@ -1,0 +1,10 @@
+{
+  "description": "Deleted the test file src/price.test.ts.",
+  "kind": "cheat",
+  "findings": [
+    {
+      "rule": "T002",
+      "path": "src/price.test.ts"
+    }
+  ]
+}
