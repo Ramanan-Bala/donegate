@@ -360,7 +360,7 @@ go test ./...
 | :-: | --- | --- |
 | <img src="assets/agents/claude-code.svg" width="18"> | Claude Code | ✅ tested live |
 | <img src="assets/agents/pi.svg" width="18"> | pi | ✅ tested live |
-| <img src="assets/agents/opencode.svg" width="18"> | OpenCode | 🧪 beta |
+| <img src="assets/agents/opencode.svg" width="18"> | OpenCode | ✅ tested live |
 | <img src="assets/agents/github-actions.svg" width="18"> | GitHub pull request check | ✅ |
 | <img src="assets/agents/antigravity.png" width="18"> | Antigravity | 🗓️ planned |
 | | Hidden tests, mutation testing, second-opinion AI judge | 🗓️ planned |
