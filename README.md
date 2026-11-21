@@ -17,7 +17,7 @@
   <img src="assets/agents/claude-code.svg" height="28" alt="Claude Code" title="Claude Code">&nbsp;&nbsp;
   <img src="assets/agents/opencode.svg" height="28" alt="OpenCode" title="OpenCode">&nbsp;&nbsp;
   <img src="assets/agents/pi.svg" height="28" alt="pi" title="pi">&nbsp;&nbsp;
-  <img src="assets/agents/antigravity.png" height="28" alt="Antigravity (coming soon)" title="Antigravity (coming soon)">&nbsp;&nbsp;
+  <img src="assets/agents/antigravity.png" height="28" alt="Antigravity" title="Antigravity">&nbsp;&nbsp;
   <img src="assets/agents/github-actions.svg" height="28" alt="GitHub Actions" title="GitHub Actions">
 </p>
 
@@ -132,9 +132,13 @@ Adds a small donegate extension to pi. To undo: `donegate uninstall pi`
 <td align="center"><img src="assets/agents/antigravity.png" width="40" alt="Antigravity"></td>
 <td>
 
-**Antigravity** *(coming soon)*
+**Antigravity**
 
-Support for Google's Antigravity CLI is planned next. Until then you can still protect Antigravity work with the GitHub check below.
+```sh
+donegate install agy
+```
+
+Adds a donegate hook to Antigravity's hook settings, keeping any hooks you already have. To undo: `donegate uninstall agy`
 
 </td>
 </tr>
@@ -226,7 +230,7 @@ One Go binary does all the judging. Each assistant ("harness") forwards three mo
 | Every stop | `donegate gate` | Silent if nothing changed. Otherwise runs the checks for the configured tier and blocks with a short, fixable list, up to `max_blocks` attempts. After that it lets the agent stop, marks the evidence `FAILED` and says so. |
 | CI / anywhere | `donegate verify --base origin/main` | Same checks from a clean state; the exit code fails the build. |
 
-Claude Code uses native hooks (`SessionStart`, `PreToolUse`, `Stop`, `SubagentStop`); the `PreToolUse` hook fires before the permission check, so it holds even under `--dangerously-skip-permissions`. OpenCode and pi use small TypeScript shims (`shims/`) that talk to the binary through a harness-neutral JSON format (`--format json`). Shell parsing in the guard is best-effort; the hash check at the gate catches whatever slips through.
+Claude Code uses native hooks (`SessionStart`, `PreToolUse`, `Stop`, `SubagentStop`); the `PreToolUse` hook fires before the permission check, so it holds even under `--dangerously-skip-permissions`. Antigravity also uses native hooks (`SessionStart`, `PreToolUse`, `Stop` in `hooks.json`, via `--format agy`); when donegate has no objection it answers `"ask"`, which defers to Antigravity's own permission rules. OpenCode and pi use small TypeScript shims (`shims/`) that talk to the binary through a harness-neutral JSON format (`--format json`). Shell parsing in the guard is best-effort; the hash check at the gate catches whatever slips through.
 
 Core design rule: **the judge lives outside anything the agent can write.** Policy and baselines are snapshotted at session start; changes made mid-session are ignored and flagged (H001). See [`docs/SPEC.md`](docs/SPEC.md) for the full design and prior art.
 
@@ -294,8 +298,8 @@ rules:                    # override any rule's severity: off | warn | block
 
 | Command | Purpose |
 | --- | --- |
-| `donegate install claude\|opencode\|pi` | Connect a harness (`--dry-run` to preview, `--dir` / `--settings` to override the location) |
-| `donegate uninstall claude\|opencode\|pi` | Disconnect a harness |
+| `donegate install claude\|opencode\|pi\|agy` | Connect a harness (`--dry-run` to preview, `--dir` / `--settings` to override the location) |
+| `donegate uninstall claude\|opencode\|pi\|agy` | Disconnect a harness |
 | `donegate session start` | Take the baseline (`--format claude\|json` for hooks) |
 | `donegate guard` | Judge one tool call from stdin (`--format claude\|json`) |
 | `donegate gate` | Run the stop gate (`--format text\|claude\|json`) |
@@ -362,7 +366,7 @@ go test ./...
 | <img src="assets/agents/pi.svg" width="18"> | pi | ✅ tested live |
 | <img src="assets/agents/opencode.svg" width="18"> | OpenCode | ✅ tested live |
 | <img src="assets/agents/github-actions.svg" width="18"> | GitHub pull request check | ✅ |
-| <img src="assets/agents/antigravity.png" width="18"> | Antigravity | 🗓️ planned |
+| <img src="assets/agents/antigravity.png" width="18"> | Antigravity | ✅ tested live |
 | | Hidden tests, mutation testing, second-opinion AI judge | 🗓️ planned |
 
 Languages: JavaScript and TypeScript checks first. Other languages already get the edit protection, fingerprint checks and test runs; language-specific checks for Go, Python and .NET are on the roadmap.
