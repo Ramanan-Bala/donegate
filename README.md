@@ -177,4 +177,4 @@ go test ./...
 
 ## License
 
-Not yet licensed. All rights reserved until a license is added.
+[MIT](LICENSE)
