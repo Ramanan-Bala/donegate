@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<testsuites name="pytest tests">
+  <testsuite name="pytest" errors="1" failures="1" skipped="1" tests="4" time="0.142">
+    <testcase classname="tests.test_cart" name="test_subtotal" file="tests/test_cart.py" time="0.002" />
+    <testcase classname="tests.test_cart" name="test_discount" file="tests/test_cart.py" time="0.004">
+      <failure message="AssertionError: assert 1000 == 900">def test_discount():
+    assert apply_discount(1000) == 900
+E       AssertionError: assert 1000 == 900</failure>
+    </testcase>
+    <testcase classname="tests.test_cart" name="test_db_fixture" file="tests/test_cart.py" time="0.005">
+      <error message="RuntimeError: connection refused">Traceback (most recent call last):
+RuntimeError: connection refused</error>
+    </testcase>
+    <testcase classname="tests.test_cart" name="test_wip" file="tests/test_cart.py" time="0.001">
+      <skipped type="pytest.skip" message="not implemented yet">Skipped: not implemented yet</skipped>
+    </testcase>
+  </testsuite>
+</testsuites>

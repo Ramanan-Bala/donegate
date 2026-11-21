@@ -1,0 +1,84 @@
+{
+  "numTotalTestSuites": 2,
+  "numPassedTestSuites": 1,
+  "numFailedTestSuites": 1,
+  "numPendingTestSuites": 0,
+  "numTotalTests": 4,
+  "numPassedTests": 2,
+  "numFailedTests": 1,
+  "numPendingTests": 1,
+  "numTodoTests": 0,
+  "startTime": 1732190000000,
+  "success": false,
+  "testResults": [
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["", "cart"],
+          "fullName": " cart calculates subtotal",
+          "status": "passed",
+          "title": "calculates subtotal",
+          "duration": 2,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["", "cart"],
+          "fullName": " cart applies 10% discount over 1000",
+          "status": "failed",
+          "title": "applies 10% discount over 1000",
+          "duration": 5,
+          "failureMessages": [
+            "\u001b[31mAssertionError\u001b[39m: expected \u001b[32m1000\u001b[39m to be \u001b[31m900\u001b[39m\n    at src/cart.test.ts:18:22"
+          ],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["", "cart"],
+          "fullName": " cart handles multi-currency",
+          "status": "pending",
+          "title": "handles multi-currency",
+          "duration": 0,
+          "failureMessages": [],
+          "meta": {}
+        }
+      ],
+      "startTime": 1732190000100,
+      "endTime": 1732190000120,
+      "status": "failed",
+      "message": "",
+      "name": "/repo/frontend/src/cart.test.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["", "format"],
+          "fullName": " format formats USD",
+          "status": "passed",
+          "title": "formats USD",
+          "duration": 1,
+          "failureMessages": [],
+          "meta": {}
+        }
+      ],
+      "startTime": 1732190000125,
+      "endTime": 1732190000130,
+      "status": "passed",
+      "message": "",
+      "name": "/repo/frontend/src/format.test.ts"
+    }
+  ],
+  "snapshot": {
+    "added": 0,
+    "didUpdate": false,
+    "failure": false,
+    "filesAdded": 0,
+    "filesUnmatched": 0,
+    "filesUpdated": 0,
+    "matched": 0,
+    "total": 0,
+    "unchecked": 0,
+    "unmatched": 0,
+    "updated": 0
+  }
+}

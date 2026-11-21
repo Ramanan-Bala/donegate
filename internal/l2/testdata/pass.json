@@ -1,0 +1,42 @@
+{
+  "numTotalTestSuites": 1,
+  "numPassedTestSuites": 1,
+  "numFailedTestSuites": 0,
+  "numPendingTestSuites": 0,
+  "numTotalTests": 2,
+  "numPassedTests": 2,
+  "numFailedTests": 0,
+  "numPendingTests": 0,
+  "numTodoTests": 0,
+  "startTime": 1732190000000,
+  "success": true,
+  "testResults": [
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["app"],
+          "fullName": "app calculates subtotal",
+          "status": "passed",
+          "title": "calculates subtotal",
+          "duration": 2,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["app"],
+          "fullName": "app applies 10% discount",
+          "status": "passed",
+          "title": "applies 10% discount",
+          "duration": 3,
+          "failureMessages": [],
+          "meta": {}
+        }
+      ],
+      "startTime": 1732190000100,
+      "endTime": 1732190000120,
+      "status": "passed",
+      "message": "",
+      "name": "src/app.test.js"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+version: 1
+# donegate gates its own development (dogfooding, see docs/SPEC.md "Driving Claude CLI through it").
+projects:
+  - name: donegate
+    root: ""
+    test: go test -count=1 ./...
+    typecheck: go vet ./...
+protect:
+  tests:
+    - "**/*_test.go"
+    - "**/testdata/**"
+  config:
+    - ".github/workflows/**"
+    - ".golangci.yml"
+  allow_new_tests: true # new test files and new fixtures are fine; existing ones are read-only
+gate:
+  tier: standard
+  max_blocks: 5
+  timeout_seconds: 300
+rules:
+  S001: off # JS-oriented literal check; noisy on Go sources

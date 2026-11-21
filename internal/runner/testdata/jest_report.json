@@ -1,0 +1,112 @@
+{
+  "numFailedTestSuites": 1,
+  "numFailedTests": 2,
+  "numPassedTestSuites": 1,
+  "numPassedTests": 2,
+  "numPendingTestSuites": 0,
+  "numPendingTests": 1,
+  "numRuntimeErrorTestSuites": 0,
+  "numTodoTests": 1,
+  "numTotalTestSuites": 2,
+  "numTotalTests": 6,
+  "openHandles": [],
+  "snapshot": {
+    "added": 0,
+    "didUpdate": false,
+    "failure": false,
+    "filesAdded": 0,
+    "filesRemoved": 0,
+    "filesRemovedList": [],
+    "filesUnmatched": 0,
+    "filesUpdated": 0,
+    "matched": 0,
+    "total": 0,
+    "unchecked": 0,
+    "uncheckedKeysByFile": [],
+    "unmatched": 0,
+    "updated": 0
+  },
+  "startTime": 1732190100000,
+  "success": false,
+  "testResults": [
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["auth", "login"],
+          "duration": 4,
+          "failureMessages": [],
+          "fullName": "auth login issues JWT for valid credentials",
+          "invocations": 1,
+          "status": "passed",
+          "title": "issues JWT for valid credentials"
+        },
+        {
+          "ancestorTitles": ["auth", "login"],
+          "duration": 7,
+          "failureMessages": [
+            "\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).toBe(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected: 401\nReceived: 200"
+          ],
+          "fullName": "auth login rejects expired token",
+          "invocations": 1,
+          "status": "failed",
+          "title": "rejects expired token"
+        },
+        {
+          "ancestorTitles": ["auth", "refresh"],
+          "duration": 3,
+          "failureMessages": [
+            "Error: refresh token rotated twice"
+          ],
+          "fullName": "",
+          "invocations": 1,
+          "status": "failed",
+          "title": "rotates refresh token once"
+        },
+        {
+          "ancestorTitles": ["auth"],
+          "duration": 0,
+          "failureMessages": [],
+          "fullName": "auth locks account after 5 tries",
+          "invocations": 0,
+          "status": "pending",
+          "title": "locks account after 5 tries"
+        },
+        {
+          "ancestorTitles": ["auth"],
+          "duration": 0,
+          "failureMessages": [],
+          "fullName": "auth supports passkeys",
+          "invocations": 0,
+          "status": "todo",
+          "title": "supports passkeys"
+        }
+      ],
+      "endTime": 1732190100500,
+      "message": "auth tests failed",
+      "name": "/repo/backend/src/auth.test.ts",
+      "startTime": 1732190100100,
+      "status": "failed",
+      "summary": ""
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["health"],
+          "duration": 1,
+          "failureMessages": [],
+          "fullName": "health returns 200 ok",
+          "invocations": 1,
+          "status": "passed",
+          "title": "returns 200 ok"
+        }
+      ],
+      "endTime": 1732190100600,
+      "message": "",
+      "name": "/repo/backend/src/health.test.ts",
+      "startTime": 1732190100550,
+      "status": "passed",
+      "summary": ""
+    }
+  ],
+  "wasInterrupted": false
+}

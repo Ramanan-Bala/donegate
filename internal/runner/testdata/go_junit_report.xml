@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites tests="99" failures="99" errors="99" time="0.050">
+  <testsuite tests="99" failures="99" time="0.050" name="github.com/example/cart">
+    <properties>
+      <property name="go.version" value="go1.27"></property>
+    </properties>
+    <testcase classname="github.com/example/cart" name="TestSubtotal" time="0.000"></testcase>
+    <testcase classname="github.com/example/cart" name="TestDiscount" time="0.010">
+      <failure message="Failed" type=""><![CDATA[    cart_test.go:24: got 1000, want 900]]></failure>
+    </testcase>
+    <testcase classname="github.com/example/cart" name="TestLegacy" time="0.000">
+      <skipped message="legacy path skipped"></skipped>
+    </testcase>
+  </testsuite>
+</testsuites>

@@ -1,0 +1,44 @@
+{
+  "numTotalTestSuites": 1,
+  "numPassedTestSuites": 0,
+  "numFailedTestSuites": 1,
+  "numPendingTestSuites": 0,
+  "numTotalTests": 2,
+  "numPassedTests": 1,
+  "numFailedTests": 1,
+  "numPendingTests": 0,
+  "numTodoTests": 0,
+  "startTime": 1732190000000,
+  "success": false,
+  "testResults": [
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["app"],
+          "fullName": "app calculates subtotal",
+          "status": "passed",
+          "title": "calculates subtotal",
+          "duration": 2,
+          "failureMessages": [],
+          "meta": {}
+        },
+        {
+          "ancestorTitles": ["app"],
+          "fullName": "app applies 10% discount",
+          "status": "failed",
+          "title": "applies 10% discount",
+          "duration": 5,
+          "failureMessages": [
+            "AssertionError: expected 1000 to be 900\n    at src/app.test.js:18:22"
+          ],
+          "meta": {}
+        }
+      ],
+      "startTime": 1732190000100,
+      "endTime": 1732190000120,
+      "status": "failed",
+      "message": "",
+      "name": "src/app.test.js"
+    }
+  ]
+}
