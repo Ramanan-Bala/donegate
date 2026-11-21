@@ -1,0 +1,6 @@
+/donegate
+/dist/
+*.test
+*.out
+.DS_Store
+.openidea/
