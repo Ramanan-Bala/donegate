@@ -17,14 +17,17 @@ func init() {
 }
 
 var (
-	c001PassWithNoTestsRe = regexp.MustCompile(`\bpassWithNoTests\W*\s*:?\s*true\b`)
-	c001StrictFalseRe     = regexp.MustCompile(`(?:^|[\s,{])['"]?strict['"]?\s*:\s*false\b`)
-	c001NoImplicitAnyRe   = regexp.MustCompile(`(?:^|[\s,{])['"]?noImplicitAny['"]?\s*:\s*false\b`)
-	c001FilterKeyRe       = regexp.MustCompile(`(?:^|[\s,{])['"]?(include|exclude|testMatch|testPathIgnorePatterns|coveragePathIgnorePatterns|ignorePatterns|ignores)['"]?\s*:`)
-	c001EslintOffRe       = regexp.MustCompile(`:\s*(?:\[\s*)?['"]?(?:off|0)['"]?\s*[,\s}\]]*$`)
-	c001WorkflowLoosenRe  = regexp.MustCompile(`continue-on-error\s*:\s*true\b|\|\|\s*true\b`)
-	c001CoverageRe        = regexp.MustCompile(`['"]?(lines|branches|functions|statements)['"]?\s*:\s*(\d+)`)
-	c001PkgLoosenRe       = regexp.MustCompile(`\|\|\s*true\b|\|\|\s*exit\s+0\b|;\s*exit\s+0\b|--passWithNoTests\b`)
+	c001PassWithNoTestsRe     = regexp.MustCompile(`\bpassWithNoTests\W*\s*:?\s*true\b`)
+	c001StrictFalseRe         = regexp.MustCompile(`(?:^|[\s,{])['"]?strict['"]?\s*:\s*false\b`)
+	c001NoImplicitAnyRe       = regexp.MustCompile(`(?:^|[\s,{])['"]?noImplicitAny['"]?\s*:\s*false\b`)
+	c001FilterKeyRe           = regexp.MustCompile(`(?:^|[\s,{])['"]?(include|exclude|testMatch|testPathIgnorePatterns|coveragePathIgnorePatterns|ignorePatterns|ignores)['"]?\s*:`)
+	c001EslintOffRe           = regexp.MustCompile(`:\s*(?:\[\s*)?['"]?(?:off|0)['"]?\s*[,\s}\]]*$`)
+	c001WorkflowLoosenRe      = regexp.MustCompile(`continue-on-error\s*:\s*true\b|\|\|\s*true\b`)
+	c001CoverageRe            = regexp.MustCompile(`['"]?(lines|branches|functions|statements)['"]?\s*:\s*(\d+)`)
+	c001PkgLoosenRe           = regexp.MustCompile(`\|\|\s*true\b|\|\|\s*exit\s+0\b|;\s*exit\s+0\b|--passWithNoTests\b`)
+	c001DotnetCompileRemoveRe = regexp.MustCompile(`<\s*Compile\s+Remove\s*=`)
+	c001PytestNarrowRe        = regexp.MustCompile(`--ignore\b|--deselect\b|--continue-on-collection-errors\b|(?:^|[\s"'])-k(?:\s|=|["'])`)
+	c001GoTestFilterRe        = regexp.MustCompile(`\bgo\s+test\b.*\s--?(?:run|skip)(?:\s|=|$)`)
 )
 
 type c001 struct{}
@@ -98,6 +101,9 @@ func c001CheckConfigFile(f diff.File, normPath string) []Finding {
 
 	isEslint := c001IsEslintConfig(normPath)
 	isWorkflow := strings.HasPrefix(normPath, ".github/workflows/")
+	isDotnetProj := c001IsDotnetProject(normPath)
+	isPytestCfg := c001IsPytestConfig(normPath)
+	isGoTestRunner := isWorkflow || c001IsMakefile(normPath)
 
 	var findings []Finding
 	for _, line := range f.Added {
@@ -119,6 +125,12 @@ func c001CheckConfigFile(f diff.File, normPath string) []Finding {
 			reason = "ESLint rule turned off"
 		case isWorkflow && c001WorkflowLoosenRe.MatchString(line.Text):
 			reason = "CI workflow failure suppressed"
+		case isDotnetProj && c001DotnetCompileRemoveRe.MatchString(line.Text):
+			reason = "test source excluded from build"
+		case isPytestCfg && c001PytestNarrowRe.MatchString(line.Text):
+			reason = "pytest test selection narrowed"
+		case isGoTestRunner && c001GoTestFilterRe.MatchString(line.Text):
+			reason = "go test filtered with -run/-skip"
 		default:
 			for _, m := range c001CoverageRe.FindAllStringSubmatch(line.Text, -1) {
 				val, err := strconv.Atoi(m[2])
@@ -209,6 +221,25 @@ func c001Subset(a, b map[string]bool) bool {
 func c001IsEslintConfig(normPath string) bool {
 	base := strings.ToLower(path.Base(normPath))
 	return strings.HasPrefix(base, ".eslintrc") || strings.HasPrefix(base, "eslint.config.")
+}
+
+func c001IsDotnetProject(normPath string) bool {
+	base := strings.ToLower(path.Base(normPath))
+	ext := path.Ext(base)
+	return ext == ".csproj" || ext == ".fsproj" || ext == ".vbproj" || base == "directory.build.props"
+}
+
+func c001IsPytestConfig(normPath string) bool {
+	switch strings.ToLower(path.Base(normPath)) {
+	case "pytest.ini", "setup.cfg", "tox.ini", "pyproject.toml":
+		return true
+	}
+	return false
+}
+
+func c001IsMakefile(normPath string) bool {
+	base := strings.ToLower(path.Base(normPath))
+	return base == "makefile" || strings.HasSuffix(base, ".mk")
 }
 
 type c001PackageJSON struct {

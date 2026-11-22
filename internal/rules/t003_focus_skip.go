@@ -2,6 +2,7 @@ package rules
 
 import (
 	"fmt"
+	"path"
 	"regexp"
 	"strings"
 
@@ -17,6 +18,36 @@ var t003Patterns = []*regexp.Regexp{
 	regexp.MustCompile(`\btest\.fails\b`),
 	regexp.MustCompile(`\bit\.fails\b`),
 	regexp.MustCompile(`\b(?:xit|xtest|xdescribe|fit|fdescribe)\s*\(`),
+}
+
+var t003GoPatterns = []*regexp.Regexp{
+	regexp.MustCompile(`\b\w+\.Skip(?:Now|f)?\(`),
+	regexp.MustCompile(`^\s*//\s*(?:go:build|\+build)\s+ignore\b`),
+}
+
+var t003PyPatterns = []*regexp.Regexp{
+	regexp.MustCompile(`@\s*pytest\.mark\.(?:skip|skipif|xfail)\b`),
+	regexp.MustCompile(`\bpytest\.skip\s*\(`),
+	regexp.MustCompile(`@\s*unittest\.(?:skip|skipIf|skipUnless|expectedFailure)\b`),
+}
+
+var t003DotnetPatterns = []*regexp.Regexp{
+	regexp.MustCompile(`\[\s*<?\s*(?:[A-Za-z_]\w*\.)*(?:Ignore|Explicit)(?:Attribute)?\b`),
+	regexp.MustCompile(`\[(?:[^\]"]|"[^"]*")*[;,]\s*(?:[A-Za-z_]\w*\.)*(?:Ignore|Explicit)(?:Attribute)?\b`),
+	regexp.MustCompile(`\[(?:[^\]"]|"[^"]*")*\b(?:Fact|Theory)\s*\((?:[^)"]|"[^"]*")*\bSkip\s*=`),
+}
+
+func t003PatternsForPath(p string) []*regexp.Regexp {
+	switch strings.ToLower(path.Ext(normalizeRulePath(p))) {
+	case ".go":
+		return t003GoPatterns
+	case ".py":
+		return t003PyPatterns
+	case ".cs", ".fs", ".vb":
+		return t003DotnetPatterns
+	default:
+		return t003Patterns
+	}
 }
 
 type t003 struct{}
@@ -42,12 +73,13 @@ func (t003) Check(c *Context) []Finding {
 		for _, line := range f.Removed {
 			removed[strings.TrimSpace(line.Text)] = true
 		}
+		patterns := t003PatternsForPath(f.Path)
 		for _, line := range f.Added {
 			if removed[strings.TrimSpace(line.Text)] {
 				continue
 			}
-			for _, re := range t003Patterns {
-				if match := re.FindString(line.Text); match != "" {
+			for _, re := range patterns {
+				if match := strings.TrimSpace(re.FindString(line.Text)); match != "" {
 					findings = append(findings, Finding{
 						RuleID:   "T003",
 						Severity: Block,

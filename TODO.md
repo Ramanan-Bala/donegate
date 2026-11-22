@@ -30,9 +30,9 @@ Pending work after v0.2.0. See `docs/SPEC.md` for the design behind each item.
 
 ## 4. More languages
 
-- [ ] Go cheat patterns for Level 1 (`t.Skip`, `//go:build ignore`, `-run` filters in test scripts).
-- [ ] .NET patterns (`[Ignore]`, `Skip=`, `<Compile Remove>`).
-- [ ] Python patterns (`pytest.mark.skip`, `conftest.py`, `pytest.ini`/`pyproject.toml` test config).
+- [x] Go cheat patterns for Level 1 (`t.Skip`, `//go:build ignore`, `-run` filters in test scripts).
+- [x] .NET patterns (`[Ignore]`, `Skip=`, `<Compile Remove>`).
+- [x] Python patterns (`pytest.mark.skip`, `conftest.py`, `pytest.ini`/`pyproject.toml` test config).
 
 ## 5. Later
 
