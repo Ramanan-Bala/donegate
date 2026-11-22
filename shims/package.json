@@ -1,0 +1,10 @@
+{
+  "private": true,
+  "description": "Type-check only: run `npm install && npx tsc -p .` in this folder.",
+  "devDependencies": {
+    "@earendil-works/pi-coding-agent": "1.6.0",
+    "@opencode-ai/plugin": "1.18.11",
+    "@types/node": "22.19.19",
+    "typescript": "5.9.3"
+  }
+}

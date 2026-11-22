@@ -163,7 +163,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: Ramanan-Bala/donegate@main
+      - uses: Ramanan-Bala/donegate@v0.2.0
 ```
 
 Every pull request then gets a donegate report as a comment, and the check fails if the work isn't proven. This is the strongest protection, because it runs on GitHub's computers where no assistant can interfere.
