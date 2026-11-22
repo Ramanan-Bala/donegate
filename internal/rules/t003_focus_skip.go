@@ -3,6 +3,7 @@ package rules
 import (
 	"fmt"
 	"regexp"
+	"strings"
 
 	"github.com/Ramanan-Bala/donegate/internal/diff"
 )
@@ -36,7 +37,15 @@ func (t003) Check(c *Context) []Finding {
 		if !isTestNonSnapshot(c.Policy, f.Path) {
 			continue
 		}
+		// A skip that only moved or was re-indented is not new.
+		removed := make(map[string]bool, len(f.Removed))
+		for _, line := range f.Removed {
+			removed[strings.TrimSpace(line.Text)] = true
+		}
 		for _, line := range f.Added {
+			if removed[strings.TrimSpace(line.Text)] {
+				continue
+			}
 			for _, re := range t003Patterns {
 				if match := re.FindString(line.Text); match != "" {
 					findings = append(findings, Finding{

@@ -15,8 +15,8 @@ Pending work after v0.2.0. See `docs/SPEC.md` for the design behind each item.
 - [ ] Record how long the standard-tier gate takes on a real repo (the open M3 acceptance criterion).
 - [ ] Run agy workers under donegate for about a week and log every unnecessary block.
 - [ ] Reduce false positives:
-  - [ ] C001 flags any `include`/`exclude` change, even one that widens coverage.
-  - [ ] T003 fires when an existing skip is only re-indented.
+  - [x] C001 flags any `include`/`exclude` change, even one that widens coverage.
+  - [x] T003 fires when an existing skip is only re-indented.
 
 ## 3. M5: checks on behaviour
 

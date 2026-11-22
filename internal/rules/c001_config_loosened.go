@@ -20,7 +20,7 @@ var (
 	c001PassWithNoTestsRe = regexp.MustCompile(`\bpassWithNoTests\W*\s*:?\s*true\b`)
 	c001StrictFalseRe     = regexp.MustCompile(`(?:^|[\s,{])['"]?strict['"]?\s*:\s*false\b`)
 	c001NoImplicitAnyRe   = regexp.MustCompile(`(?:^|[\s,{])['"]?noImplicitAny['"]?\s*:\s*false\b`)
-	c001FilterKeyRe       = regexp.MustCompile(`(?:^|[\s,{])['"]?(?:include|exclude|testMatch|testPathIgnorePatterns|coveragePathIgnorePatterns|ignorePatterns|ignores)['"]?\s*:`)
+	c001FilterKeyRe       = regexp.MustCompile(`(?:^|[\s,{])['"]?(include|exclude|testMatch|testPathIgnorePatterns|coveragePathIgnorePatterns|ignorePatterns|ignores)['"]?\s*:`)
 	c001EslintOffRe       = regexp.MustCompile(`:\s*(?:\[\s*)?['"]?(?:off|0)['"]?\s*[,\s}\]]*$`)
 	c001WorkflowLoosenRe  = regexp.MustCompile(`continue-on-error\s*:\s*true\b|\|\|\s*true\b`)
 	c001CoverageRe        = regexp.MustCompile(`['"]?(lines|branches|functions|statements)['"]?\s*:\s*(\d+)`)
@@ -113,7 +113,7 @@ func c001CheckConfigFile(f diff.File, normPath string) []Finding {
 			reason = "strict set to false"
 		case c001NoImplicitAnyRe.MatchString(line.Text):
 			reason = "noImplicitAny set to false"
-		case c001FilterKeyRe.MatchString(line.Text):
+		case c001FilterKeyRe.MatchString(line.Text) && !c001FilterWidened(line.Text, f.Removed):
 			reason = "test/lint include or ignore pattern modified"
 		case isEslint && c001EslintOffRe.MatchString(line.Text):
 			reason = "ESLint rule turned off"
@@ -143,6 +143,67 @@ func c001CheckConfigFile(f diff.File, normPath string) []Finding {
 		}
 	}
 	return findings
+}
+
+// c001InclusionKeys widen coverage when entries are added; every other filter
+// key (exclude, ignore patterns) widens coverage when entries are removed.
+var c001InclusionKeys = map[string]bool{"include": true, "testMatch": true}
+
+// c001FilterWidened reports whether an added filter-key line only widens test
+// coverage compared with a removed line for the same key. Both lines must hold
+// a complete inline array; anything else is treated as loosening.
+func c001FilterWidened(added string, removed []diff.Line) bool {
+	m := c001FilterKeyRe.FindStringSubmatch(added)
+	if m == nil {
+		return false
+	}
+	key := m[1]
+	newEntries, ok := c001InlineEntries(added)
+	if !ok {
+		return false
+	}
+	for _, r := range removed {
+		rm := c001FilterKeyRe.FindStringSubmatch(r.Text)
+		if rm == nil || rm[1] != key {
+			continue
+		}
+		oldEntries, ok := c001InlineEntries(r.Text)
+		if !ok {
+			return false
+		}
+		if c001InclusionKeys[key] {
+			return c001Subset(oldEntries, newEntries)
+		}
+		return c001Subset(newEntries, oldEntries)
+	}
+	return false
+}
+
+// c001InlineEntries parses the entries of a single-line array such as
+// `include: ["a", 'b']`. It returns false when the line has no complete array.
+func c001InlineEntries(line string) (map[string]bool, bool) {
+	start := strings.Index(line, "[")
+	end := strings.LastIndex(line, "]")
+	if start < 0 || end < start {
+		return nil, false
+	}
+	entries := map[string]bool{}
+	for _, part := range strings.Split(line[start+1:end], ",") {
+		e := strings.Trim(strings.TrimSpace(part), `"'`+"`")
+		if e != "" {
+			entries[e] = true
+		}
+	}
+	return entries, true
+}
+
+func c001Subset(a, b map[string]bool) bool {
+	for e := range a {
+		if !b[e] {
+			return false
+		}
+	}
+	return true
 }
 
 func c001IsEslintConfig(normPath string) bool {
