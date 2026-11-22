@@ -18,6 +18,7 @@ func newRootCmd() *cobra.Command {
 	rootCmd.AddCommand(newAllowCmd())
 	rootCmd.AddCommand(newGateCmd())
 	rootCmd.AddCommand(newGuardCmd())
+	rootCmd.AddCommand(newInitCmd())
 	rootCmd.AddCommand(newReportCmd())
 	rootCmd.AddCommand(newSessionCmd())
 	rootCmd.AddCommand(newInstallCmd())

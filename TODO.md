@@ -6,7 +6,7 @@ Pending work after v0.2.0. See `docs/SPEC.md` for the design behind each item.
 
 - [ ] Publish prebuilt binaries with GoReleaser (macOS, Linux, Windows; amd64 and arm64), built by a release workflow when a tag is pushed.
 - [ ] Add a Homebrew tap so people can run `brew install ramanan-bala/tap/donegate`.
-- [ ] Add `donegate init` (in the spec, not built yet): detect the stack (npm/pnpm/yarn, Vitest/Jest, `tsc`, monorepo packages) and write `.donegate.yml`.
+- [x] Add `donegate init` (in the spec, not built yet): detect the stack (npm/pnpm/yarn, Vitest/Jest, `tsc`, monorepo packages) and write `.donegate.yml`.
 - [ ] Update the README install steps once these ship, so readers no longer need Go.
 
 ## 2. Use it on real work
