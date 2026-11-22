@@ -22,9 +22,9 @@ Pending work after v0.2.0. See `docs/SPEC.md` for the design behind each item.
 
 - [ ] B001 hidden tests, plus `donegate heldout add`: tests the agent never sees, run only at the gate.
 - [ ] B002 mutation testing (Stryker) limited to changed lines.
-- [ ] T005: weakened assertions (`toEqual` → `toBeDefined`, deleted `expect`s).
-- [ ] C002: new `@ts-ignore`, `@ts-expect-error`, `eslint-disable`.
-- [ ] S004: mocking the module under test.
+- [x] T005: weakened assertions (`toEqual` → `toBeDefined`, deleted `expect`s).
+- [x] C002: new `@ts-ignore`, `@ts-expect-error`, `eslint-disable`.
+- [x] S004: mocking the module under test.
 - [ ] R004: changed lines with no test coverage.
 - [ ] L4: an optional LLM judge.
 
