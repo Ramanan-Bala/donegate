@@ -93,7 +93,7 @@ function pickDirectory(event: any, fallback: string): string {
   return fallback;
 }
 
-function guardToolCall(rawToolName: unknown, rawArgs: unknown, cwd: string): void {
+function guardToolCall(rawToolName: unknown, rawArgs: unknown, cwd: string, sessionID?: unknown): void {
   const rawTool = String(rawToolName ?? "").toLowerCase();
   const args = (rawArgs && typeof rawArgs === "object" ? rawArgs : {}) as Record<string, unknown>;
   const isShell = rawTool === "bash" || rawTool === "shell";
@@ -103,7 +103,8 @@ function guardToolCall(rawToolName: unknown, rawArgs: unknown, cwd: string): voi
     ? { tool: "bash", paths: [] as string[], command: typeof args.command === "string" ? args.command : "", cwd }
     : { tool: rawTool, paths: extractPaths(args), command: "", cwd };
 
-  const res = runDonegate<GuardRes>(["guard", "--format", "json"], payload, 10_000);
+  const session = typeof sessionID === "string" && sessionID ? sessionID : undefined;
+  const res = runDonegate<GuardRes>(["guard", "--format", "json"], { ...payload, session }, 10_000);
   if (res && res.allow === false) throw new Error(res.reason || "donegate: blocked");
 }
 
@@ -231,7 +232,7 @@ const DonegatePlugin = {
       await ctx?.tool?.hook?.("execute.before", (e: any) => {
         processor.ensureSession(e?.sessionID, cwd);
         processor.clearGated(e?.sessionID);
-        guardToolCall(e?.tool, e?.input, cwd);
+        guardToolCall(e?.tool, e?.input, cwd, e?.sessionID);
       });
     } catch {
       // fail open on internal hook registration errors
@@ -284,7 +285,7 @@ const DonegatePlugin = {
       "tool.execute.before": async (input: any, output: any) => {
         processor.ensureSession(input?.sessionID, cwd);
         processor.clearGated(input?.sessionID);
-        guardToolCall(input?.tool, output?.args, cwd);
+        guardToolCall(input?.tool, output?.args, cwd, input?.sessionID);
       },
     };
   },

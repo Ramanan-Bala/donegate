@@ -63,7 +63,11 @@ export default function (pi: ExtensionAPI) {
     }
     if (!payload) return;
 
-    const res = runDonegate<GuardRes>(["guard", "--format", "json"], payload, 10_000);
+    const res = runDonegate<GuardRes>(
+      ["guard", "--format", "json"],
+      { ...payload, session: ctx.sessionManager.getSessionId() },
+      10_000,
+    );
     if (res && res.allow === false) {
       return { block: true, reason: res.reason || "donegate: blocked" };
     }

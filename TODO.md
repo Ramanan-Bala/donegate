@@ -44,6 +44,6 @@ Pending work after v0.2.0. See `docs/SPEC.md` for the design behind each item.
 
 - [ ] Upload `assets/social-preview.png` under GitHub Settings → Social preview (manual).
 - [x] Pin the README's Action example to `@v0.2.0` instead of `@main`.
-- [ ] Pass the session id in the OpenCode and pi guard events. They send none today, so the guard falls back to the repo's current session.
+- [x] Pass the session id in the OpenCode and pi guard events. They send none today, so the guard falls back to the repo's current session.
 - [x] Make `shims/tsconfig.json` portable (it uses machine-local paths).
 - [ ] Add `git pull` to the worker deny list in `~/.agents/orchestration` (it changes git state and isn't blocked today).
